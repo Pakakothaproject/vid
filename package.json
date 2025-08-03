@@ -1,20 +1,30 @@
 {
-  "name": "paka-kotha-e2e",
+  "name": "paka-kotha-news-generator",
+  "private": true,
   "version": "1.0.0",
-  "description": "E2E test and video generation script for Paka Kotha app.",
-  "main": "index.js",
+  "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "generate-video": "node scripts/record-and-upload.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "dependencies": {
+    "@google/genai": "^0.18.0",
     "axios": "^1.7.2",
-    "form-data": "^4.0.0"
+    "form-data": "^4.0.0",
+    "lucide-react": "^0.417.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.45.3",
-    "playwright": "^1.45.3"
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "playwright": "^1.45.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   }
 }
