@@ -6,13 +6,13 @@ import path from 'path';
 // --- Hardcoded Cloudinary Information ---
 const CLOUDINARY_CLOUD_NAME = 'dho5purny';
 const CLOUDINARY_API_KEY = '638794639617948';
-const CLOUDINARY_UPLOAD_PRESET = 'PakaKotha';
+// Ensure this EXACTLY matches the preset name in your Cloudinary console
+const CLOUDINARY_UPLOAD_PRESET = process.env.CLOUDINARY_UPLOAD_PRESET || 'PakaKotha';
 
 // --- Environment Variable Validation ---
 const { WEBSITE_URL } = process.env;
-
 if (!WEBSITE_URL) {
-  console.error(`Error: Environment variable WEBSITE_URL is not set.`);
+  console.error('Error: Environment variable WEBSITE_URL is not set.');
   process.exit(1);
 }
 
@@ -45,10 +45,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
     const context = await browser.newContext({
       viewport: { width: 380, height: 700 },
-      recordVideo: {
-        dir: outputDir,
-        size: { width: 360, height: 640 }
-      }
+      recordVideo: { dir: outputDir, size: { width: 360, height: 640 } }
     });
     const page = await context.newPage();
 
@@ -62,78 +59,54 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Clicking button to start generation...');
     await generateButton.click();
 
-    console.log('Waiting for generation to complete (looking for "Play Preview" button)... This may take several minutes.');
+    console.log('Waiting for "Play Preview" button to appear...');
     const playButton = page.getByTestId('play-preview-button');
     await playButton.waitFor({ state: 'visible', timeout: 5 * 60 * 1000 });
-    console.log('Generation complete. "Play Preview" button is visible.');
+    console.log('Generation complete.');
 
     await page.waitForTimeout(1000);
-
-    console.log('Clicking "Play Preview"...');
+    console.log('Starting playback...');
     await playButton.click();
 
     const selector = '[data-testid="play-preview-button"]';
-
-    console.log('Playback started. Waiting for button to disable...');
-    await page.waitForFunction(
-      sel => document.querySelector(sel)?.disabled,
-      selector,
-      { timeout: 10000 }
-    );
-
-    console.log('Waiting for playback to finish (button re-enabled)...');
-    await page.waitForFunction(
-      sel => !document.querySelector(sel)?.disabled,
-      selector,
-      { timeout: 120000 }
-    );
+    await page.waitForFunction(sel => document.querySelector(sel)?.disabled, selector, { timeout: 10000 });
+    await page.waitForFunction(sel => !document.querySelector(sel)?.disabled, selector, { timeout: 120000 });
     console.log('Playback finished.');
 
-    console.log('Pausing briefly to capture final frames...');
     await page.waitForTimeout(3000);
-
-    console.log('Taking a final screenshot...');
+    console.log('Capturing final screenshot...');
     const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
-    console.log(`Local screenshot saved: ${screenshotPath}`);
+    console.log(`Saved screenshot: ${screenshotPath}`);
 
-    console.log('Closing browser context to save video...');
+    console.log('Closing context to save video...');
     await context.close();
-    const videoPath = fs.readdirSync(outputDir)
-      .filter(f => f.endsWith('.webm'))
-      .map(file => path.join(outputDir, file))[0];
-    console.log(`Local video saved: ${videoPath}`);
+    const [videoFile] = fs.readdirSync(outputDir).filter(f => f.endsWith('.webm'));
+    const videoPath = path.join(outputDir, videoFile);
+    console.log(`Saved video: ${videoPath}`);
 
-    // --- Upload Screenshot (unsigned) ---
+    // --- Upload Screenshot ---
     try {
-      console.log('Uploading screenshot unsigned at Cloudinary...');
-      const screenshotRes = await cloudinary.uploader.unsigned_upload(
-        screenshotPath,
-        {
-          resource_type: 'image',
-          upload_preset: CLOUDINARY_UPLOAD_PRESET,
-        }
-      );
-      console.log(`✅ Screenshot URL: ${screenshotRes.secure_url}`);
+      console.log(`Uploading screenshot with preset: ${CLOUDINARY_UPLOAD_PRESET}`);
+      const res = await cloudinary.uploader.unsigned_upload(screenshotPath, {
+        resource_type: 'image', upload_preset: CLOUDINARY_UPLOAD_PRESET
+      });
+      console.log('✅ Screenshot URL:', res.secure_url);
       fs.unlinkSync(screenshotPath);
-    } catch (uploadErr) {
-      console.error('Screenshot upload failed:', uploadErr);
+    } catch (err) {
+      console.error('Screenshot upload failed (preset may not exist):', err);
     }
 
-    // --- Upload Video (unsigned) ---
+    // --- Upload Video ---
     try {
-      console.log('Uploading video unsigned at Cloudinary...');
-      const videoRes = await cloudinary.uploader.unsigned_upload(
-        videoPath,
-        {
-          resource_type: 'video',
-          upload_preset: CLOUDINARY_UPLOAD_PRESET,
-        }
-      );
-      console.log(`✅ Video URL: ${videoRes.secure_url}`);
+      console.log(`Uploading video with preset: ${CLOUDINARY_UPLOAD_PRESET}`);
+      const resVid = await cloudinary.uploader.unsigned_upload(videoPath, {
+        resource_type: 'video', upload_preset: CLOUDINARY_UPLOAD_PRESET
+      });
+      console.log('✅ Video URL:', resVid.secure_url);
       fs.unlinkSync(videoPath);
-    } catch (uploadErr) {
-      console.error('Video upload failed:', uploadErr);
+    } catch (err) {
+      console.error('Video upload failed (preset may not exist):', err);
     }
 
   } catch (error) {
