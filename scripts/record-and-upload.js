@@ -1,3 +1,4 @@
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -6,12 +7,11 @@ import { execSync } from 'child_process';
 
 // --- Cloudinary Information ---
 // These details should be configured for your Cloudinary account.
-// The preset must be 'unsigned' unless an API secret is also provided.
 const CLOUDINARY_CLOUD_NAME = 'dho5purny';
-const CLOUDINARY_API_KEY = '638794639617948';
-// const CLOUDINARY_API_SECRET = '...'; // Only required for signed presets
-const CLOUDINARY_UPLOAD_PRESET = 'PakaKotha';
-const CLOUDINARY_UPLOAD_FOLDER = 'Sample/news';
+const CLOUDINARY_API_KEY = '713687168633254';
+const CLOUDINARY_API_SECRET = 'PW8nE1ifedZuzFejaZkvjlj8az0'; // Required for signed presets
+const CLOUDINARY_UPLOAD_PRESET = 'Ridwan';
+const CLOUDINARY_UPLOAD_FOLDER = 'sample/ridwan';
 
 // --- Environment Variable Validation ---
 const { WEBSITE_URL } = process.env;
@@ -24,7 +24,7 @@ if (!WEBSITE_URL) {
 cloudinary.config({
   cloud_name: CLOUDINARY_CLOUD_NAME,
   api_key: CLOUDINARY_API_KEY,
-  // api_secret: CLOUDINARY_API_SECRET,
+  api_secret: CLOUDINARY_API_SECRET,
   secure: true,
 });
 
@@ -85,8 +85,8 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Retrieving recorded audio data from page...');
     const audioBase64 = await page.evaluate(async () => {
         for (let i = 0; i < 10; i++) { // Poll for 10 seconds
-            if ((window as any).recordedAudioBase64) {
-                return (window as any).recordedAudioBase64;
+            if (window.recordedAudioBase64) {
+                return window.recordedAudioBase64;
             }
             await new Promise(res => setTimeout(res, 1000));
         }
@@ -119,7 +119,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     try {
         execSync(`ffmpeg -i ${rawVideoPath} -i ${audioPath} -c:v copy -c:a aac -strict experimental ${finalVideoPath}`);
         console.log(`✅ Combined video saved: ${finalVideoPath}`);
-    } catch (ffmpegError: any) {
+    } catch (ffmpegError) {
         console.error('ffmpeg command failed:', ffmpegError.message);
         throw ffmpegError;
     }
