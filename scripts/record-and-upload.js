@@ -5,8 +5,8 @@ import fs from 'fs';
 import path from 'path';
 
 // --- Hardcoded Cloudinary Information ---
-const CLOUDINARY_CLOUD_NAME = 'dukaroz3u';
-const CLOUDINARY_API_KEY = '151158368369834';
+const CLOUDINARY_CLOUD_NAME = 'dho5purny';
+const CLOUDINARY_API_KEY = '638794639617948';
 const CLOUDINARY_API_SECRET = '3yMjatIurlyBdmX-TJm1e1wdI5c';
 const CLOUDINARY_UPLOAD_PRESET = 'PakaKotha';
 
@@ -40,16 +40,16 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         console.log('Launching browser...');
         browser = await chromium.launch({ headless: true });
 
-        const videoDir = path.join(process.cwd(), 'videos');
-        // Ensure video directory exists
-        if (!fs.existsSync(videoDir)) {
-            fs.mkdirSync(videoDir);
+        const outputDir = path.join(process.cwd(), 'output');
+        // Ensure output directory exists
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
         }
 
         const context = await browser.newContext({
             viewport: { width: 380, height: 700 },
             recordVideo: {
-                dir: videoDir,
+                dir: outputDir,
                 size: { width: 360, height: 640 }
             }
         });
@@ -93,17 +93,43 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         );
         console.log('Playback finished.');
         
+        console.log('Pausing for a moment to ensure final frames are recorded...');
+        await page.waitForTimeout(3000); // Wait for animations to settle
+
+        console.log('Taking a final screenshot...');
+        const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
+        await page.screenshot({ path: screenshotPath, fullPage: true });
+        console.log(`Local screenshot saved: ${screenshotPath}`);
+
         console.log('Closing browser context to save video...');
-        const videoPath = await page.video().path();
-        await context.close();
+        await context.close(); // This saves the video
+        const videoPath = await page.video().path(); // Now get the path
         console.log(`Local video saved: ${videoPath}`);
 
+        // Upload screenshot
+        try {
+            console.log('Uploading screenshot to Cloudinary...');
+            const screenshotUploadResult = await cloudinary.uploader.upload(screenshotPath, {
+                resource_type: 'image',
+                upload_preset: CLOUDINARY_UPLOAD_PRESET,
+            });
+            console.log(`✅ Screenshot uploaded successfully! URL: ${screenshotUploadResult.secure_url}`);
+            
+            console.log('Deleting local screenshot file...');
+            fs.unlinkSync(screenshotPath);
+            console.log('Local screenshot file deleted.');
+        } catch (uploadError) {
+            console.error('An error occurred during screenshot upload:', uploadError);
+            // Don't exit, still try to upload the video
+        }
+
+        // Upload video
         console.log('Uploading video to Cloudinary...');
-        const uploadResult = await cloudinary.uploader.upload(videoPath, {
+        const videoUploadResult = await cloudinary.uploader.upload(videoPath, {
             resource_type: 'video',
             upload_preset: CLOUDINARY_UPLOAD_PRESET,
         });
-        console.log(`✅ Video uploaded successfully! URL: ${uploadResult.secure_url}`);
+        console.log(`✅ Video uploaded successfully! URL: ${videoUploadResult.secure_url}`);
         
         console.log('Deleting local video file...');
         fs.unlinkSync(videoPath);
