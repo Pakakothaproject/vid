@@ -287,8 +287,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
 
         setLoadingMessage("Fetching Latest News...");
         addLog("Fetching latest news articles...");
-        const rawArticles = await fetchRawArticles();
-        addLog(`Fetched ${rawArticles.length} raw articles.`);
+        const { articles: rawArticles, stats } = await fetchRawArticles();
+        addLog(`Fetched ${stats.totalFetched} articles in total.`);
+        addLog(`${stats.withImages} articles had images and were passed to the AI for curation.`);
         
         setLoadingMessage("Curating Top 5 Stories...");
         addLog("Curating top 5 stories with AI...");
