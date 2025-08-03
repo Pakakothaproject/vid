@@ -5,8 +5,9 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '.', '');
     return {
       define: {
-        'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
+        // As per @google/genai guidelines, the API key must be sourced from process.env.API_KEY.
+        'process.env.API_KEY': JSON.stringify(env.API_KEY),
+        'process.env.NEWSDATA_API_KEY': JSON.stringify(env.NEWSDATA_API_KEY)
       },
       resolve: {
         alias: {

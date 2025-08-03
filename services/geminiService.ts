@@ -3,8 +3,8 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { ProcessedNewsItem } from '../types';
 
 export const processNews = async (articles: any[]): Promise<ProcessedNewsItem[]> => {
-    // The Gemini API key is expected to be available as process.env.Gemini_Api in the execution environment.
-    const ai = new GoogleGenAI({ apiKey: process.env.Gemini_Api });
+    // The Gemini API key is expected to be available as process.env.API_KEY in the execution environment.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const articlesForPrompt = articles.map((a: any) => ({
         title: a.title,

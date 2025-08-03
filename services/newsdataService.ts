@@ -1,5 +1,12 @@
 export const fetchRawArticles = async () => {
-  const apiKey = "pub_13448bf229a3460abd5866ac8b3c3021";
+  const apiKey = process.env.NEWSDATA_API_KEY;
+
+  if (!apiKey) {
+    const errorMessage = "Newsdata.io API key is missing. Please set the NEWSDATA_API_KEY environment variable.";
+    console.error(errorMessage);
+    throw new Error(errorMessage);
+  }
+
   const baseParams =
     `?apikey=${apiKey}` +
     `&country=BD` +

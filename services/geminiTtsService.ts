@@ -73,8 +73,8 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
  * @returns A promise that resolves to a local URL for the generated audio blob.
  */
 export const generateAudio = async (text: string): Promise<string> => {
-    // The Gemini API key is expected to be available as process.env.Gemini_Api in the execution environment.
-    const ai = new GoogleGenAI({ apiKey: process.env.Gemini_Api });
+    // The Gemini API key is expected to be available as process.env.API_KEY in the execution environment.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     try {
         const response = await ai.models.generateContent({
