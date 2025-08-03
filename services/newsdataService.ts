@@ -55,7 +55,13 @@ export const fetchRawArticles = async () => {
       new Map(valid.map(a => [a.article_id, a])).values()
     );
 
-    return unique.slice(0, 30);
+    return { 
+        articles: unique.slice(0, 30), 
+        stats: { 
+            totalFetched: allArticles.length, 
+            withImages: unique.length 
+        } 
+    };
   } catch (error) {
     console.error("Error fetching articles:", error);
     throw error;
