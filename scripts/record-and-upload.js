@@ -74,12 +74,22 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         console.log('Clicking "Play Preview"...');
         await playButton.click();
 
+        const playButtonSelector = 'button:text-matches("play preview", "i")';
+
         console.log('Playback started. Waiting for "Play Preview" button to become disabled...');
-        await playButton.waitFor({ state: 'disabled', timeout: 10000 });
+        await page.waitForFunction(
+            (selector) => document.querySelector(selector)?.disabled,
+            playButtonSelector,
+            { timeout: 10000 }
+        );
         console.log('Playback in progress...');
 
         console.log('Waiting for playback to finish (for "Play Preview" button to be re-enabled)...');
-        await playButton.waitFor({ state: 'enabled', timeout: 120000 });
+        await page.waitForFunction(
+            (selector) => !document.querySelector(selector)?.disabled,
+            playButtonSelector,
+            { timeout: 120000 }
+        );
         console.log('Playback finished.');
         
         console.log('Closing browser context to save video...');
