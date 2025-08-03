@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from '@google/genai';
 
 /**
@@ -86,8 +87,9 @@ export const generateAudio = async (text: string): Promise<string> => {
                     voiceConfig: {
                         prebuiltVoiceConfig: {
                             voiceName: 'Kore', // A neutral voice suitable for news
-                        }
-                    }
+                        },
+                        speakingRate: 1.15 // Increase speed by 15%
+                    },
                 },
             }
         });
