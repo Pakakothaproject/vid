@@ -88,7 +88,6 @@ export const generateAudio = async (text: string): Promise<string> => {
                         prebuiltVoiceConfig: {
                             voiceName: 'Kore', // A neutral voice suitable for news
                         },
-                        speakingRate: 1.15 // Increase speed by 15%
                     },
                 },
             }
