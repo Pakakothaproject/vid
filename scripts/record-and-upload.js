@@ -1,103 +1,80 @@
-const { chromium } = require('playwright');
-const fs = require('fs');
-const path = require('path');
-const axios = require('axios');
-const FormData = require('form-data');
+import { chromium } from 'playwright';
+import path from 'path';
 
 const WEBSITE_URL = process.env.WEBSITE_URL;
-const CLOUDINARY_CLOUD_NAME = 'dho5purny';
-const CLOUDINARY_API_KEY = '638794639617948';
-const CLOUDINARY_UPLOAD_PRESET = 'PakaKotha';
-const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/video/upload`;
-
-async function main() {
-  if (!WEBSITE_URL) {
-    console.error('Error: WEBSITE_URL environment variable is not set.');
-    process.exit(1);
-  }
-
-  console.log('🚀 Starting browser automation...');
-  const browser = await chromium.launch();
-  const context = await browser.newContext({
-    recordVideo: { dir: 'videos/' },
-    viewport: { width: 360, height: 640 }, // Match the app's player dimensions
-  });
-  const page = await context.newPage();
-
-  let videoPath = '';
-  
-  try {
-    console.log(`Navigating to ${WEBSITE_URL}...`);
-    await page.goto(WEBSITE_URL, { waitUntil: 'domcontentloaded' });
-    
-    console.log('✅ Page loaded. Looking for "Generate Story" button...');
-    const generateButton = page.getByRole('button', { name: /Generate Story|Try Again/i });
-    await generateButton.waitFor({ state: 'visible', timeout: 30000 });
-    await generateButton.click();
-    console.log('✅ Clicked "Generate Story". Waiting for AI processing...');
-    
-    console.log('⏳ Waiting for "Play Preview" button to become available (timeout: 3 minutes)...');
-    const playButton = page.getByRole('button', { name: 'Play Preview' });
-    await playButton.waitFor({ state: 'visible', timeout: 180000 });
-    console.log('✅ Generation complete. "Play Preview" button is visible.');
-    
-    console.log('🎬 Clicking "Play Preview" to start playback...');
-    await playButton.click();
-    
-    console.log('⏳ Recording video playback (waiting 75 seconds)...');
-    await page.waitForTimeout(75000); // Wait for the video playback to complete
-    console.log('✅ Playback finished.');
-
-  } catch (error) {
-    console.error('❌ An error occurred during browser automation:', error);
-    process.exit(1);
-  } finally {
-    console.log('Closing browser and saving video...');
-    videoPath = await page.video().path();
-    await context.close();
-    await browser.close();
-    console.log(`✅ Video saved locally to: ${videoPath}`);
-  }
-
-  if (!fs.existsSync(videoPath)) {
-      console.error('❌ Video file was not created. Aborting upload.');
-      process.exit(1);
-  }
-
-  // Upload to Cloudinary
-  try {
-    console.log(`☁️ Uploading ${path.basename(videoPath)} to Cloudinary...`);
-    const form = new FormData();
-    form.append('file', fs.createReadStream(videoPath));
-    form.append('api_key', CLOUDINARY_API_KEY);
-    form.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
-
-    const response = await axios.post(UPLOAD_URL, form, {
-      headers: {
-        ...form.getHeaders(),
-      },
-    });
-
-    console.log('✅ Upload successful!');
-    console.log('Cloudinary response:', JSON.stringify(response.data, null, 2));
-    console.log(`➡️ Video URL: ${response.data.secure_url}`);
-
-  } catch (uploadError) {
-      console.error('❌ Cloudinary upload failed.');
-      if (uploadError.response) {
-          console.error('Error Response:', uploadError.response.data);
-      } else {
-          console.error(uploadError.message);
-      }
-      process.exit(1);
-  } finally {
-      console.log('Cleaning up local video file...');
-      fs.unlinkSync(videoPath);
-      console.log('✅ Cleanup complete.');
-  }
+if (!WEBSITE_URL) {
+  console.error("Error: WEBSITE_URL environment variable is not set.");
+  process.exit(1);
 }
 
-main().catch(err => {
-    console.error('A critical error occurred in the main function:', err);
+// Timeouts
+const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes for the whole script
+const SELECTOR_TIMEOUT = 5 * 60 * 1000; // 5 minutes for generation to complete
+
+(async () => {
+  const scriptTimeoutId = setTimeout(() => {
+    console.error(`Script timed out after ${SCRIPT_TIMEOUT / 60000} minutes.`);
     process.exit(1);
-});
+  }, SCRIPT_TIMEOUT);
+
+  let browser;
+  try {
+    console.log('Launching browser...');
+    browser = await chromium.launch({ headless: true });
+
+    const videoDir = path.join(process.cwd(), 'videos');
+    const context = await browser.newContext({
+      viewport: { width: 380, height: 700 }, // A bit larger to see everything
+      recordVideo: {
+        dir: videoDir,
+        size: { width: 360, height: 640 } // Match player size
+      }
+    });
+    const page = await context.newPage();
+
+    console.log(`Navigating to ${WEBSITE_URL}...`);
+    await page.goto(WEBSITE_URL, { waitUntil: 'networkidle' });
+
+    console.log('Waiting for "Generate Story" or "Try Again" button...');
+    const generateButton = page.getByRole('button', { name: /generate story|try again/i });
+    await generateButton.waitFor({ state: 'visible', timeout: 60000 });
+
+    console.log('Clicking button to start generation...');
+    await generateButton.click();
+
+    console.log(`Waiting for generation to complete (looking for "Play Preview" button)... This may take several minutes.`);
+    const playButton = page.getByRole('button', { name: /play preview/i });
+    // Use a long timeout because AI generation can be slow
+    await playButton.waitFor({ state: 'visible', timeout: SELECTOR_TIMEOUT });
+    console.log('Generation complete. "Play Preview" button is visible.');
+    
+    // Brief pause to ensure all elements are settled after the state change
+    await page.waitForTimeout(2000);
+
+    console.log('Clicking "Play Preview"...');
+    await playButton.click();
+
+    console.log('Playback started. Waiting for completion (looking for "Generate New" button)...');
+    // The "Generate New" button appears when the animation sequence is over.
+    const generateNewButton = page.getByRole('button', { name: /generate new/i });
+    await generateNewButton.waitFor({ state: 'visible', timeout: 120000 }); // 2 minutes for playback
+
+    console.log('Playback finished.');
+    
+    // Closing the context is essential to save the video file.
+    console.log('Closing browser context to save video...');
+    const videoPath = await page.video().path(); // Get the path before closing
+    await context.close();
+
+    console.log(`✅ Video saved successfully! Path: ${videoPath}`);
+
+  } catch (error) {
+    console.error('An error occurred during the automation script:', error);
+    process.exitCode = 1; // Set exit code to 1 to fail the GitHub Action
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+    clearTimeout(scriptTimeoutId);
+  }
+})();
