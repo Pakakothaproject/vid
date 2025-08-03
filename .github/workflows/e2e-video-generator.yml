@@ -1,4 +1,4 @@
-name: Generate, Record, and Upload Video
+ame: Generate, Record, and Upload Video
 
 on:
   workflow_dispatch:
@@ -22,6 +22,9 @@ jobs:
 
       - name: Install Playwright browsers and dependencies
         run: npx playwright install --with-deps chromium
+      
+      - name: Setup ffmpeg
+        uses: federicocarboni/setup-ffmpeg@v3
 
       - name: Run automation script
         run: npm run generate-video
