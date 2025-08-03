@@ -4,6 +4,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
+import https from 'https';
 
 // --- Cloudinary Information ---
 // These details should be configured for your Cloudinary account.
@@ -48,6 +49,29 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     }
     fs.mkdirSync(outputDir, { recursive: true });
 
+    // --- Download Intro Video ---
+    console.log('Downloading intro video...');
+    const introVideoUrl = 'https://res.cloudinary.com/dho5purny/video/upload/v1754256741/0804_ssxhg3.mp4';
+    const introVideoPath = path.join(outputDir, 'intro.mp4');
+    await new Promise((resolve, reject) => {
+        const file = fs.createWriteStream(introVideoPath);
+        https.get(introVideoUrl, (response) => {
+            if (response.statusCode !== 200) {
+                reject(new Error(`Failed to get '${introVideoUrl}' (${response.statusCode})`));
+                return;
+            }
+            response.pipe(file);
+            file.on('finish', () => {
+                file.close();
+                console.log('✅ Intro video downloaded.');
+                resolve();
+            });
+        }).on('error', (err) => {
+            fs.unlink(introVideoPath, () => {}); // A-sync cleanup
+            reject(err);
+        });
+    });
+
     // Start timing right before creating the context, which is when Playwright starts recording.
     const recordingStartTime = Date.now();
 
@@ -73,9 +97,9 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Generation complete.');
     
     // Calculate the duration of the "dead air" at the start of the video.
-    // This is the time from when recording started until the moment we click play.
-    const trimDurationInSeconds = (Date.now() - recordingStartTime) / 1000;
-    console.log(`Calculated video trim offset: ${trimDurationInSeconds.toFixed(2)}s`);
+    const trimOffset = 2; // Extra 2 seconds trim as requested
+    const trimDurationInSeconds = ((Date.now() - recordingStartTime) / 1000) + trimOffset;
+    console.log(`Calculated video trim offset: ${trimDurationInSeconds.toFixed(2)}s (including ${trimOffset}s extra delay)`);
 
     await page.waitForTimeout(1000); // Brief pause before starting
     console.log('Starting playback and recording...');
@@ -123,15 +147,16 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
     // --- Combine video and audio using ffmpeg ---
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
-    console.log('Combining and synchronizing video and audio with ffmpeg...');
+    console.log('Combining intro, main video, and audio with ffmpeg...');
     try {
-        // Use a complex filter to trim the start of the video and synchronize it with the audio.
-        // [0:v]trim=start=${...}: Takes the video stream and cuts the "dead air" from the beginning.
-        // setpts=PTS-STARTPTS: Resets the timestamp of the trimmed video so it starts at 0.
-        // [v] and [a] are labels for the processed video and audio streams.
-        // -map "[v]" -map "[a]": Selects the processed streams for the output file.
-        const ffmpegCommand = `ffmpeg -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[0:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v];[1:a]asetpts=PTS-STARTPTS[a]" -map "[v]" -map "[a]" -c:v libx264 -c:a aac -shortest "${finalVideoPath}"`;
-        
+        // This command does the following:
+        // 1. Takes 3 inputs: intro video, recorded main video, recorded audio.
+        // 2. [1:v]trim...: Trims the "dead air" from the beginning of the main recorded video.
+        // 3. [...]: Scales both the intro and main videos to a standard 360x640, yuv420p format to ensure compatibility.
+        // 4. [...]concat...: Concatenates the prepared video and audio streams together in order (intro, then main).
+        // 5. -map "[v_out]" -map "[a_out]": Selects the final concatenated streams for the output file.
+        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart "${finalVideoPath}"`;
+
         execSync(ffmpegCommand, { stdio: 'inherit' });
 
         console.log(`✅ Combined video saved: ${finalVideoPath}`);
