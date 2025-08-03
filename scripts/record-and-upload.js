@@ -158,11 +158,11 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         const introDuration = getDuration(introVideoPath);
         const mainAudioDuration = getDuration(audioPath);
         const totalDuration = introDuration + mainAudioDuration;
-        const finalTrimmedDuration = totalDuration - 4; // Trim last 4 seconds
+        const finalTrimmedDuration = totalDuration - 1; // Trim last 1s to prevent premature ending
 
         console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main=${mainAudioDuration.toFixed(2)}s`);
         console.log(`Total duration before trim: ${totalDuration.toFixed(2)}s`);
-        console.log(`Final target duration after trimming 4s: ${finalTrimmedDuration.toFixed(2)}s`);
+        console.log(`Final target duration after trimming 1s: ${finalTrimmedDuration.toFixed(2)}s`);
 
         if (finalTrimmedDuration <= 0) {
             throw new Error("Calculated final duration is zero or negative. Cannot trim video.");
