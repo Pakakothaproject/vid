@@ -1,38 +1,30 @@
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Paka Kotha - News Video Generator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Roboto:wght@400;700&family=VT323&display=swap" rel="stylesheet">
-    <style>
-      body {
-        font-family: 'Roboto', 'Hind Siliguri', sans-serif;
-        background-color: #FDF0D5; /* Base background for neo-brutalist theme */
-      }
-    </style>
-    <link rel="stylesheet" href="/index.css">
-  <script type="importmap">
 {
-  "imports": {
-    "react": "https://esm.sh/react@^19.1.1",
-    "react-dom/": "https://esm.sh/react-dom@^19.1.1/",
-    "react/": "https://esm.sh/react@^19.1.1/",
-    "path": "https://esm.sh/path@^0.12.7",
-    "vite": "https://esm.sh/vite@^7.0.6",
-    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^4.7.0",
-    "lucide-react": "https://esm.sh/lucide-react@^0.536.0",
-    "@google/genai": "https://esm.sh/@google/genai@^1.12.0"
+  "name": "paka-kotha-news-generator",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "generate-video": "node scripts/record-and-upload.js"
+  },
+  "dependencies": {
+    "@google/genai": "^0.14.0",
+    "axios": "^1.7.2",
+    "form-data": "^4.0.0",
+    "lucide-react": "^0.417.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.3",
+    "@types/node": "^20.14.12",
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.22",
+    "@vitejs/plugin-react": "^4.2.1",
+    "playwright": "^1.45.3",
+    "typescript": "^5.2.2",
+    "vite": "^5.2.0"
   }
 }
-</script>
-</head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
-  </body>
-</html>
