@@ -1,0 +1,20 @@
+{
+  "name": "paka-kotha-e2e",
+  "version": "1.0.0",
+  "description": "E2E test and video generation script for Paka Kotha app.",
+  "main": "index.js",
+  "scripts": {
+    "generate-video": "node scripts/record-and-upload.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.2",
+    "form-data": "^4.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.45.3",
+    "playwright": "^1.45.3"
+  }
+}
