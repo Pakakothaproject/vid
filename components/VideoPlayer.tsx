@@ -399,13 +399,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
     setLogs([]);
   }
 
-  const isGenerating = appStatus === 'generating' || appStatus === 'preloading';
   const buttonStyle = "w-full bg-yellow-400 text-black border-2 border-black px-6 py-2 text-xl uppercase font-bold shadow-[4px_4px_0px_#000000] hover:shadow-[2px_2px_0px_#000000] hover:translate-x-[2px] hover:translate-y-[2px] active:shadow-none active:translate-x-[4px] active:translate-y-[4px] transition-all flex items-center justify-center gap-2 disabled:bg-gray-400 disabled:shadow-none disabled:translate-x-0 disabled:translate-y-0 disabled:cursor-not-allowed";
+
+  const playerViewContainerClass = `relative rounded-lg shadow-2xl overflow-hidden border-2 border-gray-400/30 text-white bg-cover bg-center ${
+    isRecordMode ? 'w-full h-full' : 'w-[360px] h-[640px]'
+  }`;
 
   const PlayerView = (
     <div 
       ref={animationContainerRef}
-      className="relative w-[360px] h-[640px] rounded-lg shadow-2xl overflow-hidden border-2 border-gray-400/30 text-white bg-cover bg-center"
+      className={playerViewContainerClass}
       style={{ 
           fontFamily: "'Hind Siliguri', sans-serif",
           backgroundImage: `url('${assetUrlsRef.current.background || 'https://res.cloudinary.com/dy80ftu9k/image/upload/v1754000569/Add_a_heading_x5yd2x.png'}')`
@@ -453,8 +456,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
     </div>
   );
 
+  const controlsWrapperClass = isRecordMode
+      ? `absolute bottom-4 left-4 right-4 z-30 flex flex-col items-center gap-2 transition-opacity duration-500 ease-in-out ${appStatus === 'playing' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`
+      : "w-full flex flex-col items-center justify-center gap-4 pt-4 max-w-sm";
+
   const Controls = (
-      <div className={isRecordMode ? "absolute left-[-9999px]" : "w-full flex flex-col items-center justify-center gap-4 pt-4 max-w-sm"}>
+      <div className={controlsWrapperClass}>
       {error && (
         <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 w-full rounded-md flex items-start gap-3" role="alert" style={{ fontFamily: "'Roboto', sans-serif" }}>
             <AlertTriangle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
@@ -471,7 +478,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         </button>
       )}
 
-      {isGenerating && (
+      {appStatus === 'generating' || appStatus === 'preloading' && (
          <button disabled className={buttonStyle}>
           <Loader className="animate-spin" size={20} /> <span>{loadingMessage}</span>
         </button>
@@ -492,7 +499,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
 
   if (isRecordMode) {
       return (
-        <div className="w-[360px] h-[640px] relative">
+        <div className="w-screen h-screen relative bg-black">
             {PlayerView}
             {Controls}
         </div>
