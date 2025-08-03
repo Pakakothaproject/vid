@@ -419,7 +419,7 @@ const VideoPlayer: React.FC = () => {
           )}
 
           {(appStatus === 'idle' || appStatus === 'error') && (
-            <button onClick={handleGenerate} className={buttonStyle}>
+            <button onClick={handleGenerate} className={buttonStyle} data-testid="generate-story-button">
               <Film size={20} /> <span>{appStatus === 'error' ? 'Try Again' : 'Generate Story'}</span>
             </button>
           )}
@@ -432,7 +432,7 @@ const VideoPlayer: React.FC = () => {
           
           {(appStatus === 'ready' || appStatus === 'playing') && (
               <div className="flex flex-col sm:flex-row items-stretch w-full gap-4">
-                  <button onClick={handlePlay} disabled={appStatus === 'playing'} className={`${buttonStyle} bg-green-400 flex-1`}>
+                  <button onClick={handlePlay} disabled={appStatus === 'playing'} className={`${buttonStyle} bg-green-400 flex-1`} data-testid="play-preview-button">
                       {appStatus === 'playing' ? <Loader className="animate-spin" size={20}/> : <Play size={20} />} Play Preview
                   </button>
                    <button onClick={handleGenerateNew} disabled={appStatus === 'playing'} className={`${buttonStyle} bg-blue-400 flex-1`}>
