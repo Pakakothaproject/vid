@@ -48,6 +48,9 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     }
     fs.mkdirSync(outputDir, { recursive: true });
 
+    // Start timing right before creating the context, which is when Playwright starts recording.
+    const recordingStartTime = Date.now();
+
     const context = await browser.newContext({
       viewport: { width: 360, height: 640 },
       recordVideo: { dir: outputDir, size: { width: 360, height: 640 } }
@@ -68,6 +71,11 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const playButton = page.getByTestId('play-preview-button');
     await playButton.waitFor({ state: 'visible', timeout: 8 * 60 * 1000 });
     console.log('Generation complete.');
+    
+    // Calculate the duration of the "dead air" at the start of the video.
+    // This is the time from when recording started until the moment we click play.
+    const trimDurationInSeconds = (Date.now() - recordingStartTime) / 1000;
+    console.log(`Calculated video trim offset: ${trimDurationInSeconds.toFixed(2)}s`);
 
     await page.waitForTimeout(1000); // Brief pause before starting
     console.log('Starting playback and recording...');
@@ -115,20 +123,20 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
     // --- Combine video and audio using ffmpeg ---
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
-    console.log('Combining video and audio with ffmpeg...');
+    console.log('Combining and synchronizing video and audio with ffmpeg...');
     try {
-        // Playwright records video with a VP8 codec in a .webm container. The .mp4 container
-        // does not support this codec, so we must re-encode the video stream.
-        // -c:v libx264: Re-encodes the video to H.264, which is universally compatible.
-        // -c:a aac: Re-encodes the audio to AAC.
-        // -shortest: Trims the output to the duration of the shortest input (the audio), ensuring sync.
-        execSync(`ffmpeg -i ${rawVideoPath} -i ${audioPath} -c:v libx264 -c:a aac -shortest ${finalVideoPath}`);
+        // Use a complex filter to trim the start of the video and synchronize it with the audio.
+        // [0:v]trim=start=${...}: Takes the video stream and cuts the "dead air" from the beginning.
+        // setpts=PTS-STARTPTS: Resets the timestamp of the trimmed video so it starts at 0.
+        // [v] and [a] are labels for the processed video and audio streams.
+        // -map "[v]" -map "[a]": Selects the processed streams for the output file.
+        const ffmpegCommand = `ffmpeg -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[0:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v];[1:a]asetpts=PTS-STARTPTS[a]" -map "[v]" -map "[a]" -c:v libx264 -c:a aac -shortest "${finalVideoPath}"`;
+        
+        execSync(ffmpegCommand, { stdio: 'inherit' });
+
         console.log(`✅ Combined video saved: ${finalVideoPath}`);
     } catch (ffmpegError) {
-        console.error('ffmpeg command failed:', ffmpegError.message);
-        if (ffmpegError.stderr) {
-            console.error('ffmpeg stderr:', ffmpegError.stderr.toString());
-        }
+        console.error('ffmpeg command failed:', ffmpegError);
         throw ffmpegError;
     }
 
