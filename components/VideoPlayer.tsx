@@ -276,7 +276,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
     try {
         setLoadingMessage("Generating Intro...");
         addLog("Generating intro narration...");
-        const introText = "পাকা কথা নিউজে স্বাগতম। এই হলো আজকের প্রধান খবর:";
+        const introText = "এই হলো আজকের প্রধান খবর.";
         const introAudioUrl = await generateAudio(introText).catch(err => {
             console.warn("Failed to generate intro audio.", err);
             addLog("Warning: Failed to generate intro audio.");
