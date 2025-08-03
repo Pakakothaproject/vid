@@ -7,7 +7,7 @@ import path from 'path';
 const CLOUDINARY_CLOUD_NAME = 'dukaroz3u';
 const CLOUDINARY_API_KEY = '151158368369834';
 const CLOUDINARY_API_SECRET = '3yMjatIurlyBdmX-TJm1e1wdI5c';
-const CLOUDINARY_UPLOAD_PRESET = 'Pakakotha';
+const CLOUDINARY_UPLOAD_PRESET = 'PakaKotha';
 
 // --- Environment Variable Validation ---
 const { WEBSITE_URL } = process.env;
