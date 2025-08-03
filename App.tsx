@@ -2,6 +2,18 @@ import React from 'react';
 import VideoPlayer from './components/VideoPlayer';
 
 const App: React.FC = () => {
+  const urlParams = new URLSearchParams(window.location.search);
+  const isRecordMode = urlParams.get('mode') === 'record';
+
+  if (isRecordMode) {
+    return (
+      <main className="w-screen h-screen flex items-center justify-center bg-black">
+        {/* In record mode, we only render the player component for a clean capture */}
+        <VideoPlayer isRecordMode={true} />
+      </main>
+    );
+  }
+
   return (
     <main 
       className="min-h-screen w-full flex items-center justify-center p-4 sm:p-8 bg-[#FDF0D5]"
@@ -13,7 +25,7 @@ const App: React.FC = () => {
             <p className="text-center text-black">NEWS VIDEO GENERATOR</p>
         </div>
         <div className="p-4 sm:p-6">
-            <VideoPlayer />
+            <VideoPlayer isRecordMode={false} />
         </div>
       </div>
     </main>

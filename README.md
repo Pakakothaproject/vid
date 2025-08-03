@@ -4,7 +4,9 @@ This contains everything you need to run your app locally.
 
 ## Run Locally
 
-**Prerequisites:**  Node.js
+**Prerequisites:**
+* Node.js
+* ffmpeg (required for the `generate-video` script)
 
 
 1. Install dependencies:
@@ -13,9 +15,6 @@ This contains everything you need to run your app locally.
    ```
    API_KEY=your_gemini_api_key
    NEWSDATA_API_KEY=your_newsdata_io_api_key
-   CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
-   CLOUDINARY_API_KEY=your_cloudinary_api_key
-   CLOUDINARY_API_SECRET=your_cloudinary_api_secret
    ```
    Replace the placeholder values with your actual keys.
 3. Run the app:
@@ -27,4 +26,4 @@ When deploying to a hosting platform like Vercel or Netlify, ensure you set the 
 
 ## E2E Video Generation
 
-To run the video generation automation, you will need to set the above environment variables, as well as `WEBSITE_URL` (for a deployed version of the app) and `CLOUDINARY_UPLOAD_PRESET` in your environment (or in GitHub secrets for the action).
+To run the video generation automation, you will need to set the above environment variables, as well as `WEBSITE_URL` (for a deployed version of the app) in your environment (or in GitHub secrets for the action). Ensure `ffmpeg` is installed in the environment where the script is run.

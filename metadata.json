@@ -1,4 +1,6 @@
 {
-  "name": "Empty",
-  "description": "An empty app"
+  "name": "Copy of Paka Kotha - News Video Generator",
+  "description": "An application to compile daily news headlines into a short, animated infographic video suitable for social media stories.",
+  "requestFramePermissions": [],
+  "prompt": ""
 }
