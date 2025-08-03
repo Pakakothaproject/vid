@@ -3,28 +3,18 @@ import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 import path from 'path';
 
+// --- Hardcoded Cloudinary Information ---
+const CLOUDINARY_CLOUD_NAME = 'dukaroz3u';
+const CLOUDINARY_API_KEY = '151158368369834';
+const CLOUDINARY_API_SECRET = '3yMjatIurlyBdmX-TJm1e1wdI5c';
+const CLOUDINARY_UPLOAD_PRESET = 'Pakakotha';
+
 // --- Environment Variable Validation ---
-const { 
-    WEBSITE_URL, 
-    CLOUDINARY_CLOUD_NAME, 
-    CLOUDINARY_API_KEY, 
-    CLOUDINARY_API_SECRET,
-    CLOUDINARY_UPLOAD_PRESET 
-} = process.env;
+const { WEBSITE_URL } = process.env;
 
-const requiredEnv = { 
-    WEBSITE_URL, 
-    CLOUDINARY_CLOUD_NAME, 
-    CLOUDINARY_API_KEY, 
-    CLOUDINARY_API_SECRET,
-    CLOUDINARY_UPLOAD_PRESET
-};
-
-for (const [key, value] of Object.entries(requiredEnv)) {
-    if (!value) {
-        console.error(`Error: Environment variable ${key} is not set.`);
-        process.exit(1);
-    }
+if (!WEBSITE_URL) {
+    console.error(`Error: Environment variable WEBSITE_URL is not set.`);
+    process.exit(1);
 }
 
 // --- Cloudinary Configuration ---
