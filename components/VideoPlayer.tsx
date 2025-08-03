@@ -304,9 +304,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
                 setError("One or more audio narrations may have failed.");
                 return null;
             });
+            
             return {
                 id: `news-${index}`, headline: article.headline, description: article.description,
-                image: article.image_url, audioSrc: audioUrl,
+                image: article.image_url, 
+                audioSrc: audioUrl,
             };
         });
         const newsWithAudio = await Promise.all(newsWithAudioPromises);
