@@ -57,15 +57,15 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         console.log(`Navigating to ${WEBSITE_URL}...`);
         await page.goto(WEBSITE_URL, { waitUntil: 'networkidle' });
 
-        console.log('Waiting for "Generate Story" or "Try Again" button...');
-        const generateButton = page.getByRole('button', { name: /generate story|try again/i });
+        console.log('Waiting for "Generate Story" button...');
+        const generateButton = page.getByTestId('generate-story-button');
         await generateButton.waitFor({ state: 'visible', timeout: 60000 });
 
         console.log('Clicking button to start generation...');
         await generateButton.click();
 
         console.log('Waiting for generation to complete (looking for "Play Preview" button)... This may take several minutes.');
-        const playButton = page.getByRole('button', { name: /play preview/i });
+        const playButton = page.getByTestId('play-preview-button');
         await playButton.waitFor({ state: 'visible', timeout: 5 * 60 * 1000 });
         console.log('Generation complete. "Play Preview" button is visible.');
         
@@ -74,7 +74,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         console.log('Clicking "Play Preview"...');
         await playButton.click();
 
-        const playButtonSelector = 'button:text-matches("play preview", "i")';
+        const playButtonSelector = '[data-testid="play-preview-button"]';
 
         console.log('Playback started. Waiting for "Play Preview" button to become disabled...');
         await page.waitForFunction(
