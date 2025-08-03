@@ -6,12 +6,9 @@ const App: React.FC = () => {
   const isRecordMode = urlParams.get('mode') === 'record';
 
   if (isRecordMode) {
-    return (
-      <main className="w-screen h-screen flex items-center justify-center bg-black">
-        {/* In record mode, we only render the player component for a clean capture */}
-        <VideoPlayer isRecordMode={true} />
-      </main>
-    );
+    // In record mode, we render only the player component, which now handles its own full-screen layout.
+    // This removes extra layout wrappers that could interfere with automation scripts.
+    return <VideoPlayer isRecordMode={true} />;
   }
 
   return (
