@@ -47,9 +47,9 @@ export const fetchRawArticles = async () => {
     const valid = allArticles.filter(
       (a: any) =>
         a.article_id &&
-        a.image_url &&
         a.title &&
-        a.description
+        a.description &&
+        a.image_url
     );
     const unique = Array.from(
       new Map(valid.map(a => [a.article_id, a])).values()
