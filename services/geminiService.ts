@@ -25,10 +25,11 @@ Selection Criteria:
       * Major International News impacting Bangladesh  
       * Inspiring Bangladeshis achieving something notable  
 4.  **Image Requirement:** You MUST ONLY select articles that have a valid, non-null 'image_url'. Any article provided to you without an 'image_url' must be completely ignored. Among the articles with images, prioritize those with clear descriptions and high-quality visuals.
+5.  **Uniqueness:** Ensure that all 5 selected stories are unique and are not duplicates of each other.
 
 Formatting Instructions (for each of the 5 selected stories):
 1.  **Headline:** Rewrite the headline in modern, natural-sounding, spoken Bangladeshi Bangla. Make it short, catchy, and shareable (under 12 words).
-2.  **Description:** Write a concise summary (approximately 1-2 sentences) in modern, natural-sounding, spoken Bangladeshi Bangla. Keep the tone engaging and direct.
+2.  **Description:** Write a concise summary (maximum 17 words) in modern, natural-sounding, spoken Bangladeshi Bangla. Keep the tone engaging and direct.
 3.  **Image:** Preserve the original 'image_url'.
 
 Here are the raw articles to choose from: ${JSON.stringify(articlesForPrompt)}
