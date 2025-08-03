@@ -117,10 +117,18 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
     console.log('Combining video and audio with ffmpeg...');
     try {
-        execSync(`ffmpeg -i ${rawVideoPath} -i ${audioPath} -c:v copy -c:a aac -strict experimental ${finalVideoPath}`);
+        // Playwright records video with a VP8 codec in a .webm container. The .mp4 container
+        // does not support this codec, so we must re-encode the video stream.
+        // -c:v libx264: Re-encodes the video to H.264, which is universally compatible.
+        // -c:a aac: Re-encodes the audio to AAC.
+        // -shortest: Trims the output to the duration of the shortest input (the audio), ensuring sync.
+        execSync(`ffmpeg -i ${rawVideoPath} -i ${audioPath} -c:v libx264 -c:a aac -shortest ${finalVideoPath}`);
         console.log(`✅ Combined video saved: ${finalVideoPath}`);
     } catch (ffmpegError) {
         console.error('ffmpeg command failed:', ffmpegError.message);
+        if (ffmpegError.stderr) {
+            console.error('ffmpeg stderr:', ffmpegError.stderr.toString());
+        }
         throw ffmpegError;
     }
 
