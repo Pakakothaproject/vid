@@ -1,4 +1,4 @@
-ame: Generate, Record, and Upload Video
+name: Generate, Record, and Upload Video
 
 on:
   workflow_dispatch:
