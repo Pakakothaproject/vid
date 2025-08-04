@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NewsItem } from '../types';
 import NewsCard from './NewsCard';
@@ -333,6 +334,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
                 image: article.image_url, 
                 audioSrc: audioUrl,
             });
+
+            // Add a delay between API calls to avoid rate limiting.
+            if (index < processedArticles.length - 1) {
+                const INTER_REQUEST_DELAY = 1500; // ms
+                addLog(`Pausing for ${INTER_REQUEST_DELAY / 1000}s to avoid rate limits...`);
+                await new Promise(resolve => setTimeout(resolve, INTER_REQUEST_DELAY));
+            }
         }
         addLog("All narrations processed.");
         
