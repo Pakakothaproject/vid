@@ -56,7 +56,7 @@ const BGM_CHOICES = [
   'https://res.cloudinary.com/dho5purny/video/upload/v1754022536/Untitled_2_lat2xt.mp3'
 ];
 
-type AppStatus = 'idle' | 'generating' | 'preloading' | 'ready' | 'playing' | 'error';
+type AppStatus = 'idle' | 'generating' | 'preloading' | 'ready' | 'playing' | 'error' | 'finished';
 type AnimationPhase = 'stopped' | 'overview' | 'detail' | 'logo';
 
 const preloadWithTimeout = (promise: Promise<any>, timeout: number, assetUrl: string): Promise<any> => {
@@ -391,7 +391,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
     }
 
     addLog("Playback finished.");
-    setAppStatus('ready');
+    setAppStatus('finished');
   };
 
   const handleGenerateNew = () => {
@@ -420,11 +420,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
       <audio ref={audioRef} crossOrigin="anonymous" className="hidden"></audio>
       <audio ref={bgmRef} crossOrigin="anonymous" className="hidden"></audio>
 
-      {(appStatus === 'idle' || appStatus === 'error') && (
+      {(appStatus === 'idle' || appStatus === 'error' || appStatus === 'finished') && (
         <div className="w-full h-full flex flex-col items-center justify-center p-4">
           <Video className="w-24 h-24 text-white/80 mb-4 opacity-50" />
           <h1 className="text-2xl font-bold text-center drop-shadow-lg">Paka Kotha Video</h1>
-          <p className="text-white/70 mt-2 text-center">Click "Generate Story" to start.</p>
+          <p className="text-white/70 mt-2 text-center">
+            {appStatus === 'finished' ? 'Playback complete.' : 'Click "Generate Story" to start.'}
+          </p>
         </div>
       )}
       
@@ -460,7 +462,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
   );
 
   const controlsWrapperClass = isRecordMode
-      ? `absolute bottom-4 left-4 right-4 z-30 flex flex-col items-center gap-2 transition-opacity duration-500 ease-in-out ${appStatus === 'playing' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`
+      ? `absolute bottom-4 left-4 right-4 z-30 flex flex-col items-center gap-2 transition-opacity duration-500 ease-in-out ${appStatus === 'playing' || appStatus === 'finished' ? 'opacity-0 pointer-events-none' : 'opacity-100'}`
       : "w-full flex flex-col items-center justify-center gap-4 pt-4 max-w-sm";
 
   const Controls = (
