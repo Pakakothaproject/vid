@@ -12,7 +12,6 @@ export const fetchRawArticles = async () => {
     `&country=BD` +
     `&language=en` +
     `&q=Bangladesh` +
-    `&prioritydomain=top` +
     `&image=1` +
     `&size=10`;
   const baseUrl = `https://newsdata.io/api/1/latest${baseParams}`;
