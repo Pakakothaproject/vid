@@ -36,7 +36,7 @@ Formatting Instructions (for each of the 5 selected stories):
 
 Here are the raw articles to choose from: ${JSON.stringify(articlesForPrompt)}
 
-Provide your output as a JSON object containing a 'news_items' array with exactly 5 objects, following the specified format.`;
+You MUST return exactly 5 stories that strictly meet all criteria above. If fewer than 5 qualify, you must still return 5, choosing the next-best articles that fit the image and uniqueness rules. If any articles are borderline, clearly prioritize unique topics and stories with valid images. Output must be a JSON object with a news_items array of exactly 5 items — not more, not less.`;
 
     const schema = {
         type: Type.OBJECT,
@@ -65,11 +65,30 @@ Provide your output as a JSON object containing a 'news_items' array with exactl
     });
 
     const parsedResponse = JSON.parse(response.text);
-    const generatedNews = parsedResponse.news_items;
+    let generatedNews: ProcessedNewsItem[] = parsedResponse.news_items;
     
-    if (!generatedNews || !Array.isArray(generatedNews) || generatedNews.length === 0) {
-        throw new Error("AI failed to generate news in the expected format.");
+    if (!generatedNews || !Array.isArray(generatedNews)) {
+        console.warn("AI returned a non-array or missing 'news_items'. Attempting to build a list from scratch.");
+        generatedNews = [];
     }
 
+    // Fallback logic to ensure we always have exactly 5 news items.
+    if (generatedNews.length < 5) {
+        const existingImageUrls = new Set(generatedNews.map(item => item.image_url));
+        
+        const fallbackCandidates = articlesForPrompt
+            .filter(originalArticle => originalArticle.image_url && !existingImageUrls.has(originalArticle.image_url))
+            .map(fallbackArticle => ({
+                image_url: fallbackArticle.image_url,
+                // AI didn't format these, so use the original title/desc as a fallback.
+                headline: fallbackArticle.title,
+                description: fallbackArticle.description,
+            }));
+            
+        const itemsNeeded = 5 - generatedNews.length;
+        generatedNews.push(...fallbackCandidates.slice(0, itemsNeeded));
+    }
+
+    // Final slice to guarantee exactly 5 items, trimming any excess.
     return generatedNews.slice(0, 5);
 };
