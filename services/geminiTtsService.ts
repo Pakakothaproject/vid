@@ -70,79 +70,82 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 /**
  * Generates audio from text using the Google Gemini Text-to-Speech (TTS) API.
  * This is a preview feature that uses the generateContent method with an audio modality.
+ * It includes a retry mechanism with exponential backoff to handle potential API flakiness.
  * @param text The text to convert to speech (expected to be in Bengali).
  * @returns A promise that resolves to a local URL for the generated audio blob.
  */
 export const generateAudio = async (text: string): Promise<string> => {
-    // The Gemini API key is expected to be available as process.env.API_KEY in the execution environment.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+    const MAX_RETRIES = 3;
+    const INITIAL_BACKOFF_MS = 1000;
 
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash-preview-tts",
-            contents: text,
-            config: {
-                responseModalities: ["AUDIO"],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: {
-                            voiceName: 'Kore', // A neutral voice suitable for news
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const response = await ai.models.generateContent({
+                model: "gemini-2.5-flash-preview-tts",
+                contents: text,
+                config: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: {
+                                // Reverting to 'Kore' as requested by the user.
+                                voiceName: 'Kore', 
+                            },
                         },
                     },
-                },
+                }
+            });
+
+            const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+            if (audioData && audioData.trim().length > 0) {
+                const pcmData = base64ToArrayBuffer(audioData.trim());
+                const wavData = encodeWAV(pcmData, 1, 24000, 2);
+                const audioBlob = new Blob([wavData], { type: 'audio/wav' });
+
+                if (audioBlob.size <= 44) { // 44 bytes is the size of the header
+                    throw new Error("Received empty audio data from API.");
+                }
+                
+                return URL.createObjectURL(audioBlob);
             }
-        });
 
-        // The primary expected output is audio data. Check for it first.
-        const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+            const feedback = response.promptFeedback;
+            if (feedback?.blockReason) {
+                const message = `Audio generation blocked. Reason: ${feedback.blockReason}. ${feedback.blockReasonMessage || ''}`;
+                console.error(message, `Text: "${text.substring(0,50)}..."`);
+                // This is a permanent failure for this text, so don't retry.
+                throw new Error(message); 
+            }
 
-        if (audioData) {
-            // The API returns base64-encoded raw PCM data.
-            // 1. Decode base64 to get the raw PCM data.
-            const pcmData = base64ToArrayBuffer(audioData.trim());
+            const errorText = response.text;
+            if (errorText) {
+                throw new Error(`Gemini TTS returned a text response instead of audio: ${errorText}`);
+            }
 
-            // 2. Add a WAV header to the PCM data to make it a playable file.
-            // These parameters are based on the Gemini TTS documentation/examples.
-            const wavData = encodeWAV(pcmData, 1, 24000, 2); // 1 channel, 24kHz, 16-bit
+            console.error("Gemini TTS Raw Response on failure:", JSON.stringify(response, null, 2));
+            throw new Error("Gemini TTS API did not return audio data or a clear error message.");
 
-            // 3. Create a blob from the complete WAV data.
-            const audioBlob = new Blob([wavData], { type: 'audio/wav' });
+        } catch (error) {
+            console.error(`Attempt ${attempt}/${MAX_RETRIES} for generateAudio failed. Text: "${text.substring(0,50)}..."`, error);
+            
+            // Don't retry if it was a content blocking error
+            if (error instanceof Error && error.message.includes('Audio generation blocked')) {
+                throw error;
+            }
 
-            if (audioBlob.size <= 44) { // 44 bytes is the size of the header
-                throw new Error("Received empty audio data from API.");
+            if (attempt === MAX_RETRIES) {
+                console.error(`All retries failed for generateAudio.`);
+                throw error; // Re-throw the last error
             }
             
-            // 4. Create an object URL that the <audio> element can play.
-            return URL.createObjectURL(audioBlob);
+            const delay = INITIAL_BACKOFF_MS * Math.pow(2, attempt - 1);
+            console.log(`Waiting ${delay}ms before next retry...`);
+            await new Promise(res => setTimeout(res, delay));
         }
-
-        // If no audio data is found, the API call likely failed. Investigate the reason.
-        
-        // 1. Check for content blocking.
-        const feedback = response.promptFeedback;
-        if (feedback?.blockReason) {
-            const message = `Audio generation blocked for text: "${text}". Reason: ${feedback.blockReason}. ${feedback.blockReasonMessage || ''}`;
-            console.error(message);
-            throw new Error(message);
-        }
-
-        // 2. Check if the API returned a text-based error message.
-        // The .text accessor might return a warning even on success if non-text parts are present,
-        // so we only treat it as an error if we've already confirmed there's no audio data.
-        const errorText = response.text;
-        if (errorText) {
-            const message = `Gemini TTS returned a text response instead of audio for text: "${text}". Response: ${errorText}`
-            console.error(message);
-            throw new Error(message);
-        }
-
-        // 3. If no specific error is found, throw a generic failure message, but log the response first for debugging.
-        console.error("Gemini TTS Raw Response on failure:", JSON.stringify(response, null, 2));
-        throw new Error("Gemini TTS API did not return audio data or a clear error message.");
-
-    } catch (error) {
-        console.error(`Error in generateAudio with Gemini TTS for text: "${text}"`, error);
-        // Re-throw the error to ensure it's caught by the component and displayed to the user.
-        throw error;
     }
+    
+    // This line should be unreachable, but it satisfies TypeScript's need for a return path.
+    throw new Error("Audio generation failed after all retries.");
 };
