@@ -1,7 +1,9 @@
+// newsProcessor.ts
 import { GoogleGenAI, Type } from '@google/genai';
 import { ProcessedNewsItem } from '../types';
 
 export const processNews = async (articles: any[]): Promise<ProcessedNewsItem[]> => {
+    // The Gemini API key is expected to be available as process.env.API_KEY in the execution environment.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const articlesForPrompt = articles.map((a: any) => ({
@@ -9,22 +11,31 @@ export const processNews = async (articles: any[]): Promise<ProcessedNewsItem[]>
         description: a.description,
         image_url: a.image_url
     }));
+    
+    const prompt = `You are a savvy, trend-aware breaking news editor for "Paka Kotha News," a viral social media news channel targeting Gen Z and Millennial audiences in Bangladesh. Your task is to select the 5 most engaging, relevant, and shareable stories from the provided list of news articles.
 
-    const prompt = `You are a modern Bangladeshi news editor for a Gen Z audience at "Paka Kotha News". From the list of articles below, select exactly 5 engaging and diverse news stories. 
+Your selection process must strictly follow these rules in order of priority:
 
-Rules (In order of priority):
-- All 5 stories must be about completely different events — do not select duplicates or similar stories.
-- Only use articles that have a non-null 'image_url'.
- -try to diverify news different topic or sector (e.g., politics, tech, sports, business, innovation, culture, international, etc.) but not at the cost of the other rules.
+**Priority #1: ABSOLUTE EVENT & SUBJECT UNIQUENESS (MANDATORY)**
+This is your most important rule. All 5 selected stories MUST be about completely different events.
+- **No Duplicate Events:** Do not select two articles covering the same incident (e.g., the same political rally, the same product launch, the same natural disaster).
+- **No Duplicate Subjects:** Do not select two different stories that are both about the same person, company, or organization, even if the events are different. The goal is a diverse list of subjects.
+- **Critically Analyze:** Scrutinize headlines and descriptions. If two stories seem similar, err on the side of caution and pick only one. This rule overrides all other considerations. You must choose a less "perfect" but unique story over a better story that is a duplicate.
 
-Format each story as:
-- headline (in casual spoken Bangla, max 12 words)
-- description (max 18 words, also in spoken Bangla)
-- image_url (unchanged)
+**Priority #2: VALID IMAGE REQUIREMENT (MANDATORY)**
+You MUST ONLY select articles that have a valid, non-null 'image_url'. Any article provided to you without an 'image_url' must be completely ignored. This is a non-negotiable filter.
 
-Always return exactly 5 diverse, unique stories in JSON format as: { news_items: [ ... ] }
+**Priority #3: TOPIC DIVERSITY (GUIDELINE)**
+After satisfying the two mandatory rules above, try to create a diverse list of topics. If possible, select stories from different sectors like politics, technology, sports, business, innovation, culture, and international news. This is a preference, not a strict rule. Do not sacrifice uniqueness or the image requirement for the sake of diversity.
 
-Articles: ${JSON.stringify(articlesForPrompt)}`;
+Formatting Instructions (for each of the 5 selected stories):
+1.  **Headline:** Rewrite the headline in modern, natural-sounding, spoken Bangladeshi Bangla. Make it short, catchy, and shareable (under 12 words).
+2.  **Description:** Write a concise summary (maximum 18 words) in modern, natural-sounding, spoken Bangladeshi Bangla. Keep the tone engaging and direct.
+3.  **Image:** Preserve the original 'image_url'.
+
+Here are the raw articles to choose from: ${JSON.stringify(articlesForPrompt)}
+
+You MUST return exactly 5 stories that strictly meet all the mandatory criteria above. If fewer than 5 articles qualify, you must still return 5, choosing the next-best articles that fit the uniqueness and image rules. The final output must be a JSON object with a news_items array of exactly 5 items — not more, not less.`;
 
     const schema = {
         type: Type.OBJECT,
@@ -35,9 +46,9 @@ Articles: ${JSON.stringify(articlesForPrompt)}`;
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        image_url: { type: Type.STRING },
-                        headline: { type: Type.STRING },
-                        description: { type: Type.STRING },
+                        image_url: { type: Type.STRING, description: "The original image URL." },
+                        headline: { type: Type.STRING, description: "Rewritten, catchy, spoken-style Bangla headline." },
+                        description: { type: Type.STRING, description: "Engaging, spoken-style Bangla summary." },
                     },
                     required: ["image_url", "headline", "description"]
                 }
@@ -52,62 +63,31 @@ Articles: ${JSON.stringify(articlesForPrompt)}`;
         config: { responseMimeType: "application/json", responseSchema: schema }
     });
 
-    let generatedNews: ProcessedNewsItem[] = [];
-
-    try {
-        const parsedResponse = JSON.parse(response.text);
-        if (Array.isArray(parsedResponse.news_items)) {
-            generatedNews = parsedResponse.news_items;
-        }
-    } catch (err) {
-        console.warn("Failed to parse Gemini response. Falling back.");
+    const parsedResponse = JSON.parse(response.text);
+    let generatedNews: ProcessedNewsItem[] = parsedResponse.news_items;
+    
+    if (!generatedNews || !Array.isArray(generatedNews)) {
+        console.warn("AI returned a non-array or missing 'news_items'. Attempting to build a list from scratch.");
+        generatedNews = [];
     }
 
-    const usedTitles = new Set<string>();
-    const usedSectors = new Set<string>();
-
-    function inferSector(text: string): string {
-        const lowered = text.toLowerCase();
-        if (lowered.includes('minister') || lowered.includes('election')) return 'politics';
-        if (lowered.includes('tech') || lowered.includes('startup') || lowered.includes('app')) return 'tech';
-        if (lowered.includes('bank') || lowered.includes('taka') || lowered.includes('stock')) return 'business';
-        if (lowered.includes('attack') || lowered.includes('killed') || lowered.includes('arrest')) return 'violence';
-        if (lowered.includes('award') || lowered.includes('achievement')) return 'inspiration';
-        if (lowered.includes('world') || lowered.includes('international')) return 'international';
-        return 'other';
+    // Fallback logic to ensure we always have exactly 5 news items.
+    if (generatedNews.length < 5) {
+        const existingImageUrls = new Set(generatedNews.map(item => item.image_url));
+        
+        const fallbackCandidates = articlesForPrompt
+            .filter(originalArticle => originalArticle.image_url && !existingImageUrls.has(originalArticle.image_url))
+            .map(fallbackArticle => ({
+                image_url: fallbackArticle.image_url,
+                // AI didn't format these, so use the original title/desc as a fallback.
+                headline: fallbackArticle.title,
+                description: fallbackArticle.description,
+            }));
+            
+        const itemsNeeded = 5 - generatedNews.length;
+        generatedNews.push(...fallbackCandidates.slice(0, itemsNeeded));
     }
 
-    const finalNews: ProcessedNewsItem[] = [];
-
-    for (const item of generatedNews) {
-        const sector = inferSector(item.headline + ' ' + item.description);
-        if (!usedTitles.has(item.headline) && !usedSectors.has(sector)) {
-            finalNews.push(item);
-            usedTitles.add(item.headline);
-            usedSectors.add(sector);
-        }
-        if (finalNews.length === 5) break;
-    }
-
-    if (finalNews.length < 5) {
-        const fallbackCandidates = articlesForPrompt.filter(article =>
-            article.image_url && !usedTitles.has(article.title)
-        );
-
-        for (const fallback of fallbackCandidates) {
-            const sector = inferSector(fallback.title + ' ' + fallback.description);
-            if (!usedSectors.has(sector)) {
-                finalNews.push({
-                    image_url: fallback.image_url,
-                    headline: fallback.title,
-                    description: fallback.description,
-                });
-                usedTitles.add(fallback.title);
-                usedSectors.add(sector);
-            }
-            if (finalNews.length === 5) break;
-        }
-    }
-
-    return finalNews.slice(0, 5);
+    // Final slice to guarantee exactly 5 items, trimming any excess.
+    return generatedNews.slice(0, 5);
 };
