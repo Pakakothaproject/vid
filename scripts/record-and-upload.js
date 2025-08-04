@@ -137,6 +137,13 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     await page.screenshot({ path: screenshotPath, fullPage: true });
     console.log(`Saved screenshot: ${screenshotPath}`);
 
+    console.log('Retrieving generated news data from page...');
+    const generatedVideoData = await page.evaluate(() => (window).generatedVideoData);
+
+    if (!generatedVideoData || !generatedVideoData.news) {
+      console.warn("Could not retrieve generated news data from the page. Webhook will be skipped.");
+    }
+
     console.log('Closing browser context to save video...');
     await context.close();
     const rawVideoFile = fs.readdirSync(outputDir).find(f => f.endsWith('.webm') && f !== 'audio.webm');
@@ -167,13 +174,6 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
             throw new Error("Calculated final duration is zero or negative. Cannot create video.");
         }
 
-        // This command does the following:
-        // 1. Takes 3 inputs: intro video, recorded main video, recorded audio.
-        // 2. [1:v]trim...: Trims the "dead air" from the beginning of the main recorded video.
-        // 3. [...]: Scales both the intro and main videos to a standard 360x640, yuv420p format to ensure compatibility.
-        // 4. [...]concat...: Concatenates the prepared video and audio streams together in order (intro, then main).
-        // 5. -map "[v_out]" -map "[a_out]": Selects the final concatenated streams for the output file.
-        // 6. -t ${finalVideoDuration}: Sets the total duration of the output file, including time for the logo.
         const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
 
         execSync(ffmpegCommand, { stdio: 'inherit' });
@@ -198,6 +198,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     }
 
     // --- Upload Final Video ---
+    let finalVideoUrl;
     try {
       console.log('Uploading final video...');
       const resVid = await cloudinary.uploader.upload(finalVideoPath, {
@@ -206,8 +207,63 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         folder: CLOUDINARY_UPLOAD_FOLDER,
       });
       console.log('✅ Final video URL:', resVid.secure_url);
+      finalVideoUrl = resVid.secure_url;
     } catch (err) {
       console.error('Video upload failed:', err);
+    }
+
+    // --- Send to Zapier Webhook ---
+    if (finalVideoUrl && generatedVideoData) {
+      const { news, hashtags_en, hashtags_bn } = generatedVideoData;
+    
+      const englishHeadlines = news.map((item, index) => `${index + 1}. ${item.headline_en}`).join('\n');
+      const banglaHeadlines = news.map((item, index) => `${index + 1}. ${item.headline}`).join('\n');
+      
+      const videoDescription = `${englishHeadlines}\n\n🔹 Bangla Headlines\n${banglaHeadlines}\n\n${hashtags_en}\n${hashtags_bn}`;
+      
+      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/20283823/u48b757/';
+      const payload = {
+          videoLink: finalVideoUrl,
+          videoDescription: videoDescription,
+      };
+
+      try {
+          await new Promise((resolve, reject) => {
+              const payloadString = JSON.stringify(payload);
+              const options = {
+                  method: 'POST',
+                  headers: {
+                      'Content-Type': 'application/json',
+                      'Content-Length': Buffer.byteLength(payloadString),
+                  },
+              };
+
+              const req = https.request(webhookUrl, options, (res) => {
+                  let data = '';
+                  res.on('data', (chunk) => { data += chunk; });
+                  res.on('end', () => {
+                      console.log(`Zapier response status: ${res.statusCode}`);
+                      console.log('Zapier response body:', data);
+                      if (res.statusCode >= 200 && res.statusCode < 300) {
+                          resolve(data);
+                      } else {
+                          reject(new Error(`Zapier request failed with status ${res.statusCode}: ${data}`));
+                      }
+                  });
+              });
+
+              req.on('error', (e) => {
+                  console.error('Error sending POST request to Zapier:', e);
+                  reject(e);
+              });
+
+              req.write(payloadString);
+              req.end();
+          });
+          console.log('✅ Successfully sent data to Zapier webhook.');
+      } catch (zapierError) {
+          console.error('Failed to send data to Zapier:', zapierError);
+      }
     }
 
   } catch (error) {
