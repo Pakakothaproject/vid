@@ -155,10 +155,10 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
         const introDuration = getDuration(introVideoPath);
         const mainAudioDuration = getDuration(audioPath);
-        const logoDisplayDuration = 3; // Corresponds to the 3-second logo display at the end
+        const logoDisplayDuration = 1; // Display logo for 1 second at the end.
 
         const totalAudioDuration = introDuration + mainAudioDuration;
-        const finalVideoDuration = totalAudioDuration + logoDisplayDuration + 1; // Add 1s buffer for a smoother ending
+        const finalVideoDuration = totalAudioDuration + logoDisplayDuration;
 
         console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Audio=${mainAudioDuration.toFixed(2)}s, Logo=${logoDisplayDuration}s`);
         console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
