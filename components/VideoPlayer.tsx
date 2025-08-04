@@ -282,13 +282,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         setLoadingMessage("Generating Intro...");
         addLog("Generating intro narration...");
         const introText = "এই হলো আজকের প্রধান খবর.";
-        const introAudioUrl = await generateAudio(introText).catch(err => {
+        let introAudioUrl = null;
+        try {
+            introAudioUrl = await generateAudio(introText);
+            addLog(" -> Successfully generated intro narration.");
+        } catch (err) {
+            const errorMessage = err instanceof Error ? err.message : String(err);
             console.warn("Failed to generate intro audio.", err);
-            addLog("Warning: Failed to generate intro audio.");
-            return null;
-        });
+            addLog(` -> Warning: Failed to generate intro audio. Reason: ${errorMessage}`);
+        }
         initialAudioUrlRef.current = introAudioUrl;
-        addLog("Intro narration generated.");
 
         setLoadingMessage("Fetching Latest News...");
         addLog("Fetching latest news articles...");
@@ -310,12 +313,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
             setLoadingMessage(`Generating Narration ${index + 1}/${processedArticles.length}...`);
             addLog(`Generating narration ${index + 1}/${processedArticles.length} for: "${article.headline.substring(0, 20)}..."`);
             
-            const audioUrl = await generateAudio(article.description).catch(audioError => {
+            let audioUrl = null;
+            try {
+                audioUrl = await generateAudio(article.description);
+                addLog(` -> Successfully generated narration ${index + 1}.`);
+            } catch (audioError) {
+                const errorMessage = audioError instanceof Error ? audioError.message : String(audioError);
                 console.warn(`Audio generation failed for headline: "${article.headline}".`, audioError);
-                addLog(`ERROR: Audio generation failed for "${article.headline.substring(0, 20)}...". The video might have silent parts.`);
+                addLog(` -> ERROR: Audio generation failed. The video might have silent parts. Reason: ${errorMessage}`);
                 setError("One or more audio narrations failed to generate.");
-                return null;
-            });
+                // continue with null audioUrl
+            }
             
             newsWithAudio.push({
                 id: `news-${index}`,
