@@ -50,7 +50,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
     // --- Download Intro Video ---
     console.log('Downloading intro video...');
-    const introVideoUrl = 'https://res.cloudinary.com/dho5purny/video/upload/v1754256741/0804_ssxhg3.mp4';
+    const introVideoUrl = 'https://res.cloudinary.com/dho5purny/video/upload/v1754270004/0804_1_qmykh1.mp4';
     const introVideoPath = path.join(outputDir, 'intro.mp4');
     await new Promise((resolve, reject) => {
         const file = fs.createWriteStream(introVideoPath);
