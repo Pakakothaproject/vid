@@ -16,6 +16,7 @@ const placeholderNews: NewsItem[] = [
   {
     id: "ph1",
     headline: "গোপালগঞ্জে সহিংসতায়গুরুতরমানবাধিকারলঙ্ঘন",
+    headline_en: "Serious human rights violations in Gopalganj violence",
     description: "মুকসুদপুরেআওয়ামীলীগেরঅভ্যন্তরীণকোন্দলেরজেরেব্যাপকমানবাধিকারলঙ্ঘনেরঘটন ঘটেছে, যাস্থানীয়সম্প্রদায়েরমধ্যেগভীরউদ্বেগসৃষ্টিকরেছে।",
     image: "https://res.cloudinary.com/dho5purny/image/upload/v1754091924/paka_kotha_gen_1_r7mq2y.png",
     audioSrc: null,
@@ -23,6 +24,7 @@ const placeholderNews: NewsItem[] = [
   {
     id: "ph2",
     headline: "নতুনশিল্পনীতিতেঅর্থনৈতিকপ্রবৃদ্ধিরআশা",
+    headline_en: "New industrial policy hopes for economic growth",
     description: "সরকারনতুনশিল্পনীতিঘোষণাকরেছে, যারলক্ষ্যদেশেবিনিয়োগআকর্ষণএবংকর্মসংস্থানসৃষ্টিকরা।",
     image: "https://res.cloudinary.com/dho5purny/image/upload/v1754091924/paka_kotha_gen_2_x0z5g2.png",
     audioSrc: null,
@@ -30,6 +32,7 @@ const placeholderNews: NewsItem[] = [
   {
     id: "ph3",
     headline: "নদীভাঙ্গনেবিলীনহচ্ছেগ্রামেরপরগ্রাম",
+    headline_en: "Village after village disappears due to river erosion",
     description: "বর্ষামৌসুমনদীরজলস্তরবাড়ায়বিভিন্নজেলায়নদীভাঙ্গনতীব্রআকারধারণকরেছে, হাজারহাজারমানুষগৃহহীনহয়েপড়েছে।",
     image: "https://res.cloudinary.com/dho5purny/image/upload/v1754091925/paka_kotha_gen_3_yp9cqv.png",
     audioSrc: null,
@@ -37,6 +40,7 @@ const placeholderNews: NewsItem[] = [
   {
     id: "ph4",
     headline: "তরুণদেরমধ্যেবাড়ছেফ্রিল্যান্সিংয়েরজনপ্রিয়তা",
+    headline_en: "Freelancing popularity is growing among youth",
     description: "ডিজিটালযুগেতরুণপ্রজন্মपारंपरिकচাকরিরপরিবর্তেফ্রিল্যান্সিংকেপেশাহিসেবেবেছেনিচ্ছে, যাদেশেরঅর্থনীতিতেনতুনসম্ভাবনতৈরিকরছে।",
     image: "https://res.cloudinary.com/dho5purny/image/upload/v1754091924/paka_kotha_gen_4_m6xhtv.png",
     audioSrc: null,
@@ -44,6 +48,7 @@ const placeholderNews: NewsItem[] = [
   {
     id: "ph5",
     headline: "ঐতিহাসিকস্থাপনাসংরক্ষশেনতুনউদ্যোগগ্রহণ",
+    headline_en: "New initiative to preserve historical sites",
     description: "দেশেরপ্রত্নতাত্ত্বিকঐতিহ্যরক্ষাকরতেসরকারএবংবেসরকারিসংস্থাগুলোএকত্রিতহয়েঐতিহাসিকস্থাপনাসংরক্ষশেনতুনপ্রকল্পহাতেনিয়েছে।",
     image: "https://res.cloudinary.com/dho5purny/image/upload/v1754091926/paka_kotha_gen_5_q9yicx.png",
     audioSrc: null,
@@ -293,7 +298,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         
         setLoadingMessage("Curating Top 5 Stories...");
         addLog("Curating top 5 stories with AI...");
-        const processedArticles = await processNews(rawArticles);
+        const { news_items: processedArticles, hashtags_en, hashtags_bn } = await processNews(rawArticles);
         addLog(`News curation complete. Received ${processedArticles.length} stories.`);
         if (processedArticles.length < 5) {
             addLog(`Warning: AI returned only ${processedArticles.length} stories. The system filled in the rest.`);
@@ -310,7 +315,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
             });
             
             return {
-                id: `news-${index}`, headline: article.headline, description: article.description,
+                id: `news-${index}`,
+                headline: article.headline,
+                headline_en: article.headline_en,
+                description: article.description,
                 image: article.image_url, 
                 audioSrc: audioUrl,
             };
@@ -334,6 +342,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         setNews(loadedItems);
         generatedNewsRef.current = loadedItems;
         assetUrlsRef.current = loadedUrls;
+        
+        // Expose data for automation script
+        (window as any).generatedVideoData = {
+          news: loadedItems,
+          hashtags_en,
+          hashtags_bn,
+        };
         
         setAppStatus('ready');
         addLog("Story ready for preview.");
