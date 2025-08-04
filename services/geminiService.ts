@@ -2,7 +2,7 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { ProcessedNewsItem } from '../types';
 
-// The AI now returns categorized items, which are processed locally.
+// The AI now returns categorized items.
 interface CategorizedNewsItem extends ProcessedNewsItem {
   category: string;
 }
@@ -23,39 +23,39 @@ export const processNews = async (articles: any[]): Promise<NewsGenerationRespon
         image_url: a.image_url
     }));
     
-    const prompt = `You are a meticulous and discerning breaking news editor for "Paka Kotha News," a viral social media news channel in Bangladesh. Your primary task is to curate a list of 8-10 unique, engaging, and visually-backed news stories from a provided list.
+    const prompt = `You are a meticulous breaking news editor for "Paka Kotha News," a viral social media news channel in Bangladesh. Your task is to curate exactly 5 unique, engaging, and visually-backed news stories from a provided list.
 
-Your selection and formatting process must follow these steps precisely:
+**CRITICAL RULES:**
+1.  You MUST select exactly 5 stories relating to Banagldesh or its people.
+2.  Every story MUST have a valid 'image_url'.
+3.  The 5 stories MUST be about completely distinct and separate subjects. Do NOT include multiple stories about the same event, person, or incident (e.g., two stories about heatwaves).
+4.  There must be atleast one news for each of these: Politics, Innovation or Business and Crime.
+5.  All generated text ('headline', 'description') MUST be in modern, natural-sounding, spoken Bangladeshi Bangla.
+5. If there’s a major update from the High Court or Supreme Court, give it slight priority — but **only one such story per cycle
 
-**Step 1: Initial Selection & Uniqueness Verification (CRITICAL)**
-- Scan the list of raw articles and select 8-10 candidate stories.
-- **MANDATORY:** Every candidate you select MUST have a valid, non-null 'image_url'.
-- **CRITICAL RULE:** You MUST eliminate any stories that are thematically or factually related. The final list of candidates must be about completely distinct and separate subjects.
-- **Definition of "Related":** Stories about the same event (e.g., different updates on a single political situation), the same person (e.g., a celebrity's recent activities), the same specific incident (e.g., a crime and the subsequent investigation), or very similar topics (e.g., two different stories about heatwaves).
-
-**Step 2: Formatting and Categorization**
-For each of the 8-10 final candidate stories, format them as follows:
-1.  **headline:** Rewrite the headline in modern, natural-sounding, spoken Bangladeshi Bangla. Make it short, catchy, and shareable (under 12 words).
-2.  **headline_en:** Provide a short, catchy, English version of the headline suitable for social media.
-3.  **description:** Write a concise summary (maximum 18 words) in modern, natural-sounding, spoken Bangladeshi Bangla.
+**Formatting Instructions:**
+For each of the 5 stories, format them as follows:
+1.  **headline:** A short, catchy, spoken-style Bangla headline (under 12 words).
+2.  **headline_en:** A short, catchy, English version of the headline.
+3.  **description:** A concise summary (maximum 18 words) in spoken-style Bangla.
 4.  **image_url:** Preserve the original 'image_url'.
 5.  **category:** Assign a single, relevant category from this list: ['Politics', 'Business', 'Technology', 'Sports', 'Entertainment', 'Social', 'International', 'Crime', 'Weather'].
 
-**Step 3: Hashtag Generation**
-After formatting the stories, generate hashtags:
-- **hashtags_en**: Create a single string of relevant, trending English hashtags.
-- **hashtags_bn**: Create a single string of relevant, trending Bengali hashtags.
+**Hashtag Generation:**
+After formatting the 5 stories, generate two strings of hashtags:
+- **hashtags_en**: A single string of relevant English hashtags.
+- **hashtags_bn**: A single string of relevant Bengali hashtags.
 
-Here are the raw articles to choose from: ${JSON.stringify(articlesForPrompt)}
+Here are the raw articles: ${JSON.stringify(articlesForPrompt)}
 
-You MUST return a single JSON object. The object must contain a 'news_items' array of 8 to 10 stories, a 'hashtags_en' string, and a 'hashtags_bn' string.`;
+You MUST return a single JSON object containing a 'news_items' array of exactly 5 stories, and the two hashtag strings.`;
 
     const schema = {
         type: Type.OBJECT,
         properties: {
             news_items: {
                 type: Type.ARRAY,
-                description: "An array of 8-10 selected, formatted, and categorized news stories.",
+                description: "An array of exactly 5 selected, formatted, and categorized news stories.",
                 items: {
                     type: Type.OBJECT,
                     properties: {
@@ -91,58 +91,29 @@ You MUST return a single JSON object. The object must contain a 'news_items' arr
         parsedResponse = JSON.parse(response.text);
     } catch (e) {
         console.error("Failed to parse AI response as JSON.", e);
-        parsedResponse = {};
-    }
-
-    const candidates = parsedResponse.news_items || [];
-    const finalNews: CategorizedNewsItem[] = [];
-    const usedCategories = new Set<string>();
-    const usedImageUrls = new Set<string>();
-
-    // Stage 2, Pass 1: Curate by prioritizing unique categories for diversity.
-    for (const item of candidates) {
-        if (finalNews.length >= 5) break;
-
-        const isDuplicateImage = usedImageUrls.has(item.image_url);
-        const isDuplicateCategory = usedCategories.has(item.category);
-
-        if (!isDuplicateImage && !isDuplicateCategory) {
-            finalNews.push(item);
-            usedCategories.add(item.category);
-            usedImageUrls.add(item.image_url);
-        }
-    }
-
-    // Stage 2, Pass 2: If we still need more stories, fill with any remaining unique items.
-    if (finalNews.length < 5) {
-        for (const item of candidates) {
-            if (finalNews.length >= 5) break;
-            if (!usedImageUrls.has(item.image_url)) {
-                finalNews.push(item);
-                usedImageUrls.add(item.image_url);
-            }
-        }
+        throw new Error("AI response was not valid JSON. See console for details.");
     }
     
-    // Fallback logic to ensure we always have exactly 5 news items.
-    if (finalNews.length < 5) {
-        const fallbackCandidates = articlesForPrompt
-            .filter(originalArticle => originalArticle.image_url && !usedImageUrls.has(originalArticle.image_url))
-            .map(fallbackArticle => ({
-                image_url: fallbackArticle.image_url,
-                headline: fallbackArticle.title, // Fallback to original title
-                headline_en: fallbackArticle.title, // Fallback to original title
-                description: fallbackArticle.description,
-                category: 'Social', // Add default category for type consistency
-            }));
-            
-        const itemsNeeded = 5 - finalNews.length;
-        finalNews.push(...fallbackCandidates.slice(0, itemsNeeded));
+    const finalNews = parsedResponse.news_items;
+
+    // Strict validation of the AI's output
+    if (!finalNews || !Array.isArray(finalNews) || finalNews.length !== 5) {
+        console.error("AI did not return exactly 5 news items. Response:", JSON.stringify(parsedResponse, null, 2));
+        throw new Error(`AI curation failed: Expected 5 news items, but received ${finalNews?.length || 0}.`);
     }
 
-    // Final slice to guarantee exactly 5 items, trimming any excess.
+    // Further validation to ensure all items are complete
+    for (let i = 0; i < finalNews.length; i++) {
+        const item = finalNews[i];
+        if (!item.image_url || !item.headline || !item.headline_en || !item.description || !item.category) {
+            console.error(`AI returned an incomplete news item at index ${i}. Item:`, JSON.stringify(item, null, 2));
+            throw new Error(`AI returned an incomplete news item at index ${i}.`);
+        }
+    }
+
+    // If validation passes, return the data.
     return {
-        news_items: finalNews.slice(0, 5),
+        news_items: finalNews,
         hashtags_en: parsedResponse.hashtags_en || '#news #bangladesh #breakingnews',
         hashtags_bn: parsedResponse.hashtags_bn || '#খবর #বাংলাদেশ #শিরোনাম',
     };
