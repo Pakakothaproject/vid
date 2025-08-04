@@ -1,6 +1,3 @@
-
-
-
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -107,11 +104,11 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Starting playback and recording...');
     await playButton.click();
     
-    // Wait for playback to finish by monitoring the button's disabled state
+    // Wait for playback to finish by monitoring the button's state
     const selector = '[data-testid="play-preview-button"]';
     await page.waitForFunction(sel => document.querySelector(sel)?.disabled, selector, { timeout: 10000 });
     console.log("Playback in progress...")
-    await page.waitForFunction(sel => !document.querySelector(sel)?.disabled, selector, { timeout: 120000 });
+    await page.waitForFunction(sel => !document.querySelector(sel), selector, { timeout: 120000 });
     console.log('Playback finished.');
     
     await page.waitForTimeout(3000); // Allow time for audio processing to finalize.
@@ -161,7 +158,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         const logoDisplayDuration = 3; // Corresponds to the 3-second logo display at the end
 
         const totalAudioDuration = introDuration + mainAudioDuration;
-        const finalVideoDuration = totalAudioDuration + logoDisplayDuration;
+        const finalVideoDuration = totalAudioDuration + logoDisplayDuration + 1; // Add 1s buffer for a smoother ending
 
         console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Audio=${mainAudioDuration.toFixed(2)}s, Logo=${logoDisplayDuration}s`);
         console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
