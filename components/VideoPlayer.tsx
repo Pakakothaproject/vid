@@ -294,7 +294,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         setLoadingMessage("Curating Top 5 Stories...");
         addLog("Curating top 5 stories with AI...");
         const processedArticles = await processNews(rawArticles);
-        addLog("News curation complete.");
+        addLog(`News curation complete. Received ${processedArticles.length} stories.`);
+        if (processedArticles.length < 5) {
+            addLog(`Warning: AI returned only ${processedArticles.length} stories. The system filled in the rest.`);
+        }
         
         const newsWithAudioPromises = processedArticles.map(async (article, index) => {
             setLoadingMessage(`Generating Narration ${index + 1}/${processedArticles.length}...`);
@@ -455,7 +458,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 h-36 bg-cover bg-no-repeat bg-bottom z-10 pointer-events-none" style={{ backgroundImage: `url('${assetUrlsRef.current.overlay || 'https://res.cloudinary.com/dy80ftu9k/image/upload/v1753644798/Untitled-1_hxkjvt.png'}')` }}/>
-      <div className="absolute bottom-5 z-20 w-full flex justify-center pointer-events-none">
+      <div className={`absolute bottom-5 z-20 w-full flex justify-center pointer-events-none transition-opacity duration-300 ${animationPhase === 'logo' ? 'opacity-0' : 'opacity-100'}`}>
           <img src={assetUrlsRef.current.logo || "https://res.cloudinary.com/dho5purny/image/upload/v1754000603/Logo_nevggd.png"} alt="Paka Kotha Logo" className="h-16" />
       </div>
     </div>
