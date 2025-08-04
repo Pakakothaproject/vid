@@ -304,26 +304,28 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
             addLog(`Warning: AI returned only ${processedArticles.length} stories. The system filled in the rest.`);
         }
         
-        const newsWithAudioPromises = processedArticles.map(async (article, index) => {
+        addLog("Generating narrations sequentially...");
+        const newsWithAudio: NewsItem[] = [];
+        for (const [index, article] of processedArticles.entries()) {
             setLoadingMessage(`Generating Narration ${index + 1}/${processedArticles.length}...`);
             addLog(`Generating narration ${index + 1}/${processedArticles.length} for: "${article.headline.substring(0, 20)}..."`);
+            
             const audioUrl = await generateAudio(article.description).catch(audioError => {
                 console.warn(`Audio generation failed for headline: "${article.headline}".`, audioError);
-                addLog(`Warning: Audio generation failed for "${article.headline.substring(0, 20)}..."`);
-                setError("One or more audio narrations may have failed.");
+                addLog(`ERROR: Audio generation failed for "${article.headline.substring(0, 20)}...". The video might have silent parts.`);
+                setError("One or more audio narrations failed to generate.");
                 return null;
             });
             
-            return {
+            newsWithAudio.push({
                 id: `news-${index}`,
                 headline: article.headline,
                 headline_en: article.headline_en,
                 description: article.description,
                 image: article.image_url, 
                 audioSrc: audioUrl,
-            };
-        });
-        const newsWithAudio = await Promise.all(newsWithAudioPromises);
+            });
+        }
         addLog("All narrations processed.");
         
         const randomBgm = BGM_CHOICES[Math.floor(Math.random() * BGM_CHOICES.length)];
