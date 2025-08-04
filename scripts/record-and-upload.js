@@ -1,5 +1,6 @@
 
 
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -157,15 +158,16 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
         const introDuration = getDuration(introVideoPath);
         const mainAudioDuration = getDuration(audioPath);
-        const totalDuration = introDuration + mainAudioDuration;
-        const finalTrimmedDuration = totalDuration - 1; // Trim last 1s to prevent premature ending
+        const logoDisplayDuration = 3; // Corresponds to the 3-second logo display at the end
 
-        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main=${mainAudioDuration.toFixed(2)}s`);
-        console.log(`Total duration before trim: ${totalDuration.toFixed(2)}s`);
-        console.log(`Final target duration after trimming 1s: ${finalTrimmedDuration.toFixed(2)}s`);
+        const totalAudioDuration = introDuration + mainAudioDuration;
+        const finalVideoDuration = totalAudioDuration + logoDisplayDuration;
 
-        if (finalTrimmedDuration <= 0) {
-            throw new Error("Calculated final duration is zero or negative. Cannot trim video.");
+        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Audio=${mainAudioDuration.toFixed(2)}s, Logo=${logoDisplayDuration}s`);
+        console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
+
+        if (finalVideoDuration <= 0) {
+            throw new Error("Calculated final duration is zero or negative. Cannot create video.");
         }
 
         // This command does the following:
@@ -174,8 +176,8 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         // 3. [...]: Scales both the intro and main videos to a standard 360x640, yuv420p format to ensure compatibility.
         // 4. [...]concat...: Concatenates the prepared video and audio streams together in order (intro, then main).
         // 5. -map "[v_out]" -map "[a_out]": Selects the final concatenated streams for the output file.
-        // 6. -t ${finalTrimmedDuration}: Sets the total duration of the output file, trimming the end.
-        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalTrimmedDuration} "${finalVideoPath}"`;
+        // 6. -t ${finalVideoDuration}: Sets the total duration of the output file, including time for the logo.
+        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
 
         execSync(ffmpegCommand, { stdio: 'inherit' });
 
