@@ -1,4 +1,6 @@
 
+
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -41,7 +43,10 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
   let browser;
   try {
     console.log('Launching browser...');
-    browser = await chromium.launch({ headless: true });
+    browser = await chromium.launch({ 
+        headless: true,
+        args: ['--autoplay-policy=no-user-gesture-required'] 
+    });
 
     const outputDir = path.join(process.cwd(), 'videos');
     if (fs.existsSync(outputDir)) {
@@ -141,8 +146,38 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Retrieving generated news data from page...');
     const generatedVideoData = await page.evaluate(() => (window).generatedVideoData);
 
+    // --- Assess Generated News Content ---
     if (!generatedVideoData || !generatedVideoData.news) {
-      console.warn("Could not retrieve generated news data from the page. Webhook will be skipped.");
+      console.warn("Could not retrieve generated news data. Assessment and Webhook will be skipped.");
+    } else {
+      console.log('\n--- Assessing Generated News Content ---');
+  
+      const newsItems = generatedVideoData.news;
+      const newsCount = newsItems.length;
+  
+      console.log(`[Assessment] Found ${newsCount} news items.`);
+      if (newsCount !== 5) {
+          console.warn(`[Assessment] WARNING: Expected 5 news items, but found ${newsCount}.`);
+      }
+  
+      const headlines = newsItems.map(item => (item.headline_en || item.headline).trim());
+      const uniqueHeadlines = new Set(headlines);
+  
+      if (uniqueHeadlines.size < headlines.length) {
+          console.warn('[Assessment] WARNING: Duplicate news headlines detected!');
+          const headlineCounts = headlines.reduce((acc, value) => {
+              acc[value] = (acc[value] || 0) + 1;
+              return acc;
+          }, {});
+          
+          const duplicates = Object.keys(headlineCounts).filter(key => headlineCounts[key] > 1);
+          console.warn('[Assessment] The following headlines appear more than once:');
+          duplicates.forEach(h => console.warn(`- "${h}" (found ${headlineCounts[h]} times)`));
+      } else {
+          console.log('[Assessment] All news headlines are unique.');
+      }
+  
+      console.log('--- End of News Content Assessment ---\n');
     }
 
     console.log('Closing browser context to save video...');
