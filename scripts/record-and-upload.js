@@ -1,3 +1,4 @@
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -212,16 +213,16 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
       console.error('Video upload failed:', err);
     }
 
-    // --- Send to Zapier Webhook ---
+    // --- Send to Webhook ---
     if (finalVideoUrl && generatedVideoData) {
       const { news, hashtags_en, hashtags_bn } = generatedVideoData;
     
-      const englishHeadlines = news.map((item, index) => `${index + 1}. ${item.headline_en}`).join('\n');
-      const banglaHeadlines = news.map((item, index) => `${index + 1}. ${item.headline}`).join('\n');
+      const englishHeadlines = news.map((item, index) => `${index + 1}. ${item.headline_en}`).join('\\n');
+      const banglaHeadlines = news.map((item, index) => `${index + 1}. ${item.headline}`).join('\\n');
       
-      const videoDescription = `${englishHeadlines}\n\n🔹 Bangla Headlines\n${banglaHeadlines}\n\n${hashtags_en}\n${hashtags_bn}`;
+      const videoDescription = `${englishHeadlines}\\n\\n🔹 Bangla Headlines\\n${banglaHeadlines}\\n\\n${hashtags_en}\\n${hashtags_bn}`;
       
-      const webhookUrl = 'https://hooks.zapier.com/hooks/catch/20283823/u48b757/';
+      const webhookUrl = 'https://hook.us2.make.com/urbj1s7e81g3g59di6uaadxy302882xp';
       const payload = {
           videoLink: finalVideoUrl,
           videoDescription: videoDescription,
@@ -242,27 +243,27 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
                   let data = '';
                   res.on('data', (chunk) => { data += chunk; });
                   res.on('end', () => {
-                      console.log(`Zapier response status: ${res.statusCode}`);
-                      console.log('Zapier response body:', data);
+                      console.log(`Webhook response status: ${res.statusCode}`);
+                      console.log('Webhook response body:', data);
                       if (res.statusCode >= 200 && res.statusCode < 300) {
                           resolve(data);
                       } else {
-                          reject(new Error(`Zapier request failed with status ${res.statusCode}: ${data}`));
+                          reject(new Error(`Webhook request failed with status ${res.statusCode}: ${data}`));
                       }
                   });
               });
 
               req.on('error', (e) => {
-                  console.error('Error sending POST request to Zapier:', e);
+                  console.error('Error sending POST request to webhook:', e);
                   reject(e);
               });
 
               req.write(payloadString);
               req.end();
           });
-          console.log('✅ Successfully sent data to Zapier webhook.');
-      } catch (zapierError) {
-          console.error('Failed to send data to Zapier:', zapierError);
+          console.log('✅ Successfully sent data to webhook.');
+      } catch (webhookError) {
+          console.error('Failed to send data to webhook:', webhookError);
       }
     }
 
