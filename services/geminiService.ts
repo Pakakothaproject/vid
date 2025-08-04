@@ -2,7 +2,13 @@
 import { GoogleGenAI, Type } from '@google/genai';
 import { ProcessedNewsItem } from '../types';
 
-export const processNews = async (articles: any[]): Promise<ProcessedNewsItem[]> => {
+interface NewsGenerationResponse {
+  news_items: ProcessedNewsItem[];
+  hashtags_en: string;
+  hashtags_bn: string;
+}
+
+export const processNews = async (articles: any[]): Promise<NewsGenerationResponse> => {
     // The Gemini API key is expected to be available as process.env.API_KEY in the execution environment.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
@@ -12,49 +18,67 @@ export const processNews = async (articles: any[]): Promise<ProcessedNewsItem[]>
         image_url: a.image_url
     }));
     
-    const prompt = `You are a savvy, trend-aware breaking news editor for "Paka Kotha News," a viral social media news channel targeting Gen Z and Millennial audiences in Bangladesh. Your task is to select the 5 most engaging, relevant, and shareable stories from the provided list of news articles.
+    const prompt = `You are a meticulous and discerning breaking news editor for "Paka Kotha News," a viral social media news channel in Bangladesh. Your primary task is to curate a list of exactly 5 unique, engaging, and visually-backed news stories from a provided list.
 
-Your selection process must strictly follow these rules in order of priority:
+Your selection and formatting process must follow these steps precisely:
 
-**Priority #1: ABSOLUTE EVENT & SUBJECT UNIQUENESS (MANDATORY)**
-This is your most important rule. All 5 selected stories MUST be about completely different events.
-- **No Duplicate Events:** Do not select two articles covering the same incident (e.g., the same political rally, the same product launch, the same natural disaster).
-- **No Duplicate Subjects:** Do not select two different stories that are both about the same person, company, or organization, even if the events are different. The goal is a diverse list of subjects.
-- **Critically Analyze:** Scrutinize headlines and descriptions. If two stories seem similar, err on the side of caution and pick only one. This rule overrides all other considerations. You must choose a less "perfect" but unique story over a better story that is a duplicate.
+**Step 1: Initial Selection**
+- Scan the list of raw articles.
+- Select more than 5 candidate stories that seem promising based on being engaging and relevant to a Bangladeshi audience.
+- **MANDATORY:** Every candidate you select MUST have a valid, non-null 'image_url'.
 
-**Priority #2: VALID IMAGE REQUIREMENT (MANDATORY)**
-You MUST ONLY select articles that have a valid, non-null 'image_url'. Any article provided to you without an 'image_url' must be completely ignored. This is a non-negotiable filter.
+**Step 2: Uniqueness Verification (CRITICAL)**
+- Review your candidate stories.
+- You MUST eliminate any stories that are thematically or factually related. This is the most important rule.
+- **Definition of "Related":** Stories about the same event (e.g., different updates on a single political situation), the same person (e.g., a celebrity's recent activities), the same specific incident (e.g., a crime and the subsequent investigation), or very similar topics (e.g., two different stories about heatwaves).
+- Your final list of 5 MUST be about completely distinct and separate subjects. If you find duplicates, discard them and select new, unique articles from the raw list that also have an 'image_url'.
 
-**Priority #3: TOPIC DIVERSITY (GUIDELINE)**
-After satisfying the two mandatory rules above, try to create a diverse list of topics. If possible, select stories from different sectors like politics, technology, sports, business, innovation, culture, and international news. This is a preference, not a strict rule. Do not sacrifice uniqueness or the image requirement for the sake of diversity.
+**Step 3: Final Curation**
+- From your verified unique list, select the final 5 most compelling stories.
+- Aim for topic diversity (e.g., mix politics, technology, culture, sports if possible).
 
-Formatting Instructions (for each of the 5 selected stories):
-1.  **Headline:** Rewrite the headline in modern, natural-sounding, spoken Bangladeshi Bangla. Make it short, catchy, and shareable (under 12 words).
-2.  **Description:** Write a concise summary (maximum 18 words) in modern, natural-sounding, spoken Bangladeshi Bangla. Keep the tone engaging and direct.
-3.  **Image:** Preserve the original 'image_url'.
+**Step 4: Formatting and Hashtag Generation**
+For each of the 5 final stories, format them as follows:
+1.  **headline:** Rewrite the headline in modern, natural-sounding, spoken Bangladeshi Bangla. Make it short, catchy, and shareable (under 12 words).
+2.  **headline_en:** Provide a short, catchy, English version of the headline suitable for social media.
+3.  **description:** Write a concise summary (maximum 18 words) in modern, natural-sounding, spoken Bangladeshi Bangla.
+4.  **image_url:** Preserve the original 'image_url'.
+
+After formatting the 5 stories, generate hashtags:
+- **hashtags_en**: Create a single string of relevant, trending English hashtags.
+- **hashtags_bn**: Create a single string of relevant, trending Bengali hashtags.
 
 Here are the raw articles to choose from: ${JSON.stringify(articlesForPrompt)}
 
-You MUST return exactly 5 stories that strictly meet all the mandatory criteria above. If fewer than 5 articles qualify, you must still return 5, choosing the next-best articles that fit the uniqueness and image rules. The final output must be a JSON object with a news_items array of exactly 5 items — not more, not less.`;
+You MUST return a single JSON object. The object must contain a 'news_items' array of exactly 5 stories that have passed the uniqueness verification, a 'hashtags_en' string, and a 'hashtags_bn' string.`;
 
     const schema = {
         type: Type.OBJECT,
         properties: {
             news_items: {
                 type: Type.ARRAY,
-                description: "An array of 5 selected and formatted news stories for a Gen Z/Millennial audience.",
+                description: "An array of 5 selected and formatted news stories.",
                 items: {
                     type: Type.OBJECT,
                     properties: {
                         image_url: { type: Type.STRING, description: "The original image URL." },
                         headline: { type: Type.STRING, description: "Rewritten, catchy, spoken-style Bangla headline." },
+                        headline_en: { type: Type.STRING, description: "A short, catchy, English version of the headline." },
                         description: { type: Type.STRING, description: "Engaging, spoken-style Bangla summary." },
                     },
-                    required: ["image_url", "headline", "description"]
+                    required: ["image_url", "headline", "headline_en", "description"]
                 }
+            },
+            hashtags_en: {
+                type: Type.STRING,
+                description: "A single string of relevant English hashtags, space-separated, starting with #."
+            },
+            hashtags_bn: {
+                type: Type.STRING,
+                description: "A single string of relevant Bengali hashtags, space-separated, starting with #."
             }
         },
-        required: ["news_items"]
+        required: ["news_items", "hashtags_en", "hashtags_bn"]
     };
 
     const response = await ai.models.generateContent({
@@ -63,10 +87,17 @@ You MUST return exactly 5 stories that strictly meet all the mandatory criteria 
         config: { responseMimeType: "application/json", responseSchema: schema }
     });
 
-    const parsedResponse = JSON.parse(response.text);
-    let generatedNews: ProcessedNewsItem[] = parsedResponse.news_items;
+    let parsedResponse: Partial<NewsGenerationResponse>;
+    try {
+        parsedResponse = JSON.parse(response.text);
+    } catch (e) {
+        console.error("Failed to parse AI response as JSON.", e);
+        parsedResponse = {};
+    }
+
+    let generatedNews: ProcessedNewsItem[] = parsedResponse.news_items || [];
     
-    if (!generatedNews || !Array.isArray(generatedNews)) {
+    if (!Array.isArray(generatedNews)) {
         console.warn("AI returned a non-array or missing 'news_items'. Attempting to build a list from scratch.");
         generatedNews = [];
     }
@@ -79,8 +110,8 @@ You MUST return exactly 5 stories that strictly meet all the mandatory criteria 
             .filter(originalArticle => originalArticle.image_url && !existingImageUrls.has(originalArticle.image_url))
             .map(fallbackArticle => ({
                 image_url: fallbackArticle.image_url,
-                // AI didn't format these, so use the original title/desc as a fallback.
-                headline: fallbackArticle.title,
+                headline: fallbackArticle.title, // Fallback to original title
+                headline_en: fallbackArticle.title, // Fallback to original title
                 description: fallbackArticle.description,
             }));
             
@@ -89,5 +120,9 @@ You MUST return exactly 5 stories that strictly meet all the mandatory criteria 
     }
 
     // Final slice to guarantee exactly 5 items, trimming any excess.
-    return generatedNews.slice(0, 5);
+    return {
+        news_items: generatedNews.slice(0, 5),
+        hashtags_en: parsedResponse.hashtags_en || '#news #bangladesh #breakingnews',
+        hashtags_bn: parsedResponse.hashtags_bn || '#খবর #বাংলাদেশ #শিরোনাম',
+    };
 };
