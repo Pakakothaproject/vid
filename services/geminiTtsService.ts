@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from '@google/genai';
 
 /**
@@ -66,77 +65,69 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
     return bytes.buffer;
 };
 
+const _performApiCall = async (text: string, apiKey: string): Promise<string> => {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: text,
+        config: {
+            responseModalities: ["AUDIO"],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: {
+                        voiceName: 'Kore',
+                    },
+                },
+            },
+        }
+    });
 
-/**
- * Generates audio from text using the Google Gemini Text-to-Speech (TTS) API.
- * This is a preview feature that uses the generateContent method with an audio modality.
- * It includes a retry mechanism with exponential backoff to handle potential API flakiness.
- * @param text The text to convert to speech (expected to be in Bengali).
- * @returns A promise that resolves to a local URL for the generated audio blob.
- */
-export const generateAudio = async (text: string): Promise<string> => {
-    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-    const MAX_RETRIES = 3;
+    const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+
+    if (audioData && audioData.trim().length > 0) {
+        const pcmData = base64ToArrayBuffer(audioData.trim());
+        const wavData = encodeWAV(pcmData, 1, 24000, 2);
+        const audioBlob = new Blob([wavData], { type: 'audio/wav' });
+
+        if (audioBlob.size <= 44) { // 44 bytes is the size of the WAV header
+            throw new Error("Received empty audio data from API.");
+        }
+        
+        return URL.createObjectURL(audioBlob);
+    }
+    
+    const feedback = response.promptFeedback;
+    if (feedback?.blockReason) {
+        const message = `Audio generation blocked. Reason: ${feedback.blockReason}. ${feedback.blockReasonMessage || ''}`;
+        console.error(message, `Text: "${text.substring(0,50)}..."`);
+        throw new Error(message); 
+    }
+
+    const errorText = response.text;
+    if (errorText) {
+        throw new Error(`Gemini TTS returned a text response instead of audio: ${errorText}`);
+    }
+
+    console.error("Gemini TTS Raw Response on failure:", JSON.stringify(response, null, 2));
+    throw new Error("Gemini TTS API did not return audio data or a clear error message.");
+};
+
+const _attemptWithRetries = async (text: string, apiKey: string, keyName: string): Promise<string> => {
+    const MAX_RETRIES = 5;
     const INITIAL_BACKOFF_MS = 1000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            const response = await ai.models.generateContent({
-                model: "gemini-2.5-flash-preview-tts",
-                contents: text,
-                config: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: {
-                                // Reverting to 'Kore' as requested by the user.
-                                voiceName: 'Kore', 
-                            },
-                        },
-                    },
-                }
-            });
-
-            const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-
-            if (audioData && audioData.trim().length > 0) {
-                const pcmData = base64ToArrayBuffer(audioData.trim());
-                const wavData = encodeWAV(pcmData, 1, 24000, 2);
-                const audioBlob = new Blob([wavData], { type: 'audio/wav' });
-
-                if (audioBlob.size <= 44) { // 44 bytes is the size of the header
-                    throw new Error("Received empty audio data from API.");
-                }
-                
-                return URL.createObjectURL(audioBlob);
-            }
-
-            const feedback = response.promptFeedback;
-            if (feedback?.blockReason) {
-                const message = `Audio generation blocked. Reason: ${feedback.blockReason}. ${feedback.blockReasonMessage || ''}`;
-                console.error(message, `Text: "${text.substring(0,50)}..."`);
-                // This is a permanent failure for this text, so don't retry.
-                throw new Error(message); 
-            }
-
-            const errorText = response.text;
-            if (errorText) {
-                throw new Error(`Gemini TTS returned a text response instead of audio: ${errorText}`);
-            }
-
-            console.error("Gemini TTS Raw Response on failure:", JSON.stringify(response, null, 2));
-            throw new Error("Gemini TTS API did not return audio data or a clear error message.");
-
+            return await _performApiCall(text, apiKey);
         } catch (error) {
-            console.error(`Attempt ${attempt}/${MAX_RETRIES} for generateAudio failed. Text: "${text.substring(0,50)}..."`, error);
+            console.error(`[${keyName}] Attempt ${attempt}/${MAX_RETRIES} for generateAudio failed. Text: "${text.substring(0,50)}..."`, error);
             
-            // Don't retry if it was a content blocking error
             if (error instanceof Error && error.message.includes('Audio generation blocked')) {
-                throw error;
+                throw error; // Don't retry if it's a content blocking error
             }
 
             if (attempt === MAX_RETRIES) {
-                console.error(`All retries failed for generateAudio.`);
+                console.error(`[${keyName}] All retries failed.`);
                 throw error; // Re-throw the last error
             }
             
@@ -145,7 +136,41 @@ export const generateAudio = async (text: string): Promise<string> => {
             await new Promise(res => setTimeout(res, delay));
         }
     }
-    
-    // This line should be unreachable, but it satisfies TypeScript's need for a return path.
-    throw new Error("Audio generation failed after all retries.");
+    throw new Error(`[${keyName}] Audio generation failed after all retries.`);
+};
+
+/**
+ * Generates audio from text using the Google Gemini TTS API with a retry and fallback mechanism.
+ * It first tries the primary API_KEY. If that fails, it falls back to API_KEY2.
+ * @param text The text to convert to speech.
+ * @returns A promise that resolves to a local URL for the generated audio blob.
+ */
+export const generateAudio = async (text: string): Promise<string> => {
+    const primaryApiKey = process.env.API_KEY;
+    const secondaryApiKey = process.env.API_KEY2;
+
+    if (!primaryApiKey) {
+        throw new Error("Primary API key (API_KEY) is not configured.");
+    }
+
+    try {
+        return await _attemptWithRetries(text, primaryApiKey, 'API_KEY');
+    } catch (primaryError) {
+        const errorMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
+        console.warn(`Primary API key failed. Reason: ${errorMessage}`);
+
+        if (secondaryApiKey && secondaryApiKey.trim() !== '' && secondaryApiKey !== primaryApiKey) {
+            console.log("Attempting fallback to secondary API key (API_KEY2)...");
+            try {
+                return await _attemptWithRetries(text, secondaryApiKey, 'API_KEY2');
+            } catch (secondaryError) {
+                const secondaryErrorMessage = secondaryError instanceof Error ? secondaryError.message : String(secondaryError);
+                console.error(`Secondary API key (API_KEY2) also failed. Reason: ${secondaryErrorMessage}`);
+                throw new Error("Audio generation failed with both primary and secondary API keys.");
+            }
+        } else {
+            console.error("No valid fallback API key is available. Audio generation has failed.");
+            throw primaryError; // Re-throw the original error if no fallback is possible
+        }
+    }
 };

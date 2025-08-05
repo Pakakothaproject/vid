@@ -13,16 +13,17 @@ This contains everything you need to run your app locally.
    `npm install`
 2. Create a `.env.local` file in the root of the project and add your API keys:
    ```
-   API_KEY=your_gemini_api_key
+   API_KEY=your_primary_gemini_api_key
+   API_KEY2=your_fallback_gemini_api_key
    NEWSDATA_API_KEY=your_newsdata_io_api_key
    ```
-   Replace the placeholder values with your actual keys.
+   Replace the placeholder values with your actual keys. The `API_KEY2` is used as a fallback if the primary key fails during audio generation.
 3. Run the app:
    `npm run dev`
 
 ## Deploying
 
-When deploying to a hosting platform like Vercel or Netlify, ensure you set the `API_KEY` and `NEWSDATA_API_KEY` as environment variables in your project's settings.
+When deploying to a hosting platform like Vercel or Netlify, ensure you set the `API_KEY`, `API_KEY2`, and `NEWSDATA_API_KEY` as environment variables in your project's settings.
 
 ## E2E Video Generation
 

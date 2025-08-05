@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NewsItem } from '../types';
 import NewsCard from './NewsCard';
@@ -261,10 +262,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
 
       setAnimationPhase('logo');
       if (bgmGainNodeRef.current && audioContextRef.current) {
-        bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 2.5);
+        // Fade out BGM over 1.5s
+        bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.5);
       }
-      await sleep(3000);
+      // Hold logo for 2s total, allowing BGM to fade.
+      await sleep(2000);
 
+      // Export the final playback duration for the recording script to use.
+      if (audioContextRef.current) {
+        (window as any).playbackDuration = audioContextRef.current.currentTime;
+      }
+      
       setAnimationPhase('stopped');
       if(bgmRef.current) bgmRef.current.pause();
 
@@ -320,10 +328,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
                 addLog(` -> Successfully generated narration ${index + 1}.`);
             } catch (audioError) {
                 const errorMessage = audioError instanceof Error ? audioError.message : String(audioError);
-                console.warn(`Audio generation failed for headline: "${article.headline}".`, audioError);
-                addLog(` -> ERROR: Audio generation failed. The video might have silent parts. Reason: ${errorMessage}`);
-                setError("One or more audio narrations failed to generate.");
-                // continue with null audioUrl
+                console.error(`Audio generation failed for headline: "${article.headline}".`, audioError);
+                addLog(` -> ERROR: Audio generation failed for item ${index + 1}. A silent gap will be present. Reason: ${errorMessage}`);
+                // Do not throw; allow the process to continue to avoid halting.
             }
             
             newsWithAudio.push({
@@ -337,7 +344,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
 
             // Add a delay between API calls to avoid rate limiting.
             if (index < processedArticles.length - 1) {
-                const INTER_REQUEST_DELAY = 1500; // ms
+                const INTER_REQUEST_DELAY = 2500; // ms - Increased delay
                 addLog(`Pausing for ${INTER_REQUEST_DELAY / 1000}s to avoid rate limits...`);
                 await new Promise(resolve => setTimeout(resolve, INTER_REQUEST_DELAY));
             }

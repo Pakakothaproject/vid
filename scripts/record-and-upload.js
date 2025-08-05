@@ -1,9 +1,3 @@
-
-
-
-
-
-
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -97,8 +91,8 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const recordingStartTime = Date.now();
 
     const context = await browser.newContext({
-      viewport: { width: 360, height: 640 },
-      recordVideo: { dir: outputDir, size: { width: 360, height: 640 } }
+      viewport: { width: 540, height: 960 },
+      recordVideo: { dir: outputDir, size: { width: 540, height: 960 } }
     });
     const page = await context.newPage();
 
@@ -133,7 +127,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     await page.waitForFunction(sel => !document.querySelector(sel), selector, { timeout: 120000 });
     console.log('Playback finished.');
     
-    await page.waitForTimeout(3000); // Allow time for audio processing to finalize.
+    await page.waitForTimeout(3000); // Allow time for audio/duration processing to finalize.
 
     console.log('Retrieving recorded audio data from page...');
     const audioBase64 = await page.evaluate(async () => {
@@ -153,6 +147,20 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     fs.writeFileSync(audioPath, Buffer.from(audioBase64, 'base64'));
     console.log(`Saved audio: ${audioPath}`);
 
+    console.log('Retrieving precise playback duration from page...');
+    const mainSegmentDuration = await page.evaluate(async () => {
+        for (let i = 0; i < 10; i++) {
+             if (window.playbackDuration) {
+                return window.playbackDuration;
+            }
+            await new Promise(res => setTimeout(res, 500));
+        }
+        return null;
+    });
+
+    if (!mainSegmentDuration) {
+      throw new Error("Could not retrieve precise animation duration from the page. Final video may be cut short.");
+    }
 
     console.log('Capturing final screenshot...');
     const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
@@ -213,21 +221,19 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
         };
 
         const introDuration = getDuration(introVideoPath);
-        const mainAudioDuration = getDuration(audioPath);
+        
+        // The final video's duration is the sum of the intro and the precise main segment
+        // duration retrieved from the browser's high-resolution audio context timer.
+        const finalVideoDuration = introDuration + mainSegmentDuration;
 
-        // The main audio track already contains the full narration and background music,
-        // including the fade-out over the logo at the end. The final video's duration
-        // should be the sum of the intro and this main audio track.
-        const finalVideoDuration = introDuration + mainAudioDuration;
-
-        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Segment (Audio/Video)=${mainAudioDuration.toFixed(2)}s`);
+        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Segment (from App)=${mainSegmentDuration.toFixed(2)}s`);
         console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
 
         if (finalVideoDuration <= 0) {
             throw new Error("Calculated final duration is zero or negative. Cannot create video.");
         }
 
-        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=360:640:force_original_aspect_ratio=decrease,pad=360:640:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
+        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
 
         execSync(ffmpegCommand, { stdio: 'inherit' });
 
