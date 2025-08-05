@@ -98,6 +98,19 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     });
     const page = await context.newPage();
 
+    // --- Start extensive logging ---
+    page.on('console', msg => {
+      try {
+        const type = msg.type().toUpperCase();
+        const text = msg.text();
+        console.log(`[BROWSER LOG - ${type}] ${text}`);
+      } catch (e) {
+        console.log(`[BROWSER LOG] (Could not stringify message)`);
+      }
+    });
+    console.log('Script is now listening for browser console logs.');
+    // --- End extensive logging ---
+
     console.log(`Navigating to ${WEBSITE_URL}?mode=record...`);
     await page.goto(`${WEBSITE_URL}?mode=record`, { waitUntil: 'networkidle' });
 
