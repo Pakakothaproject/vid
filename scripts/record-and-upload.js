@@ -1,6 +1,7 @@
 
 
 
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -31,6 +32,17 @@ cloudinary.config({
   secure: true,
 });
 
+// --- Intro Video URLs per Day of the Week ---
+const introVideoUrls = {
+  'Sunday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354104/sample/ridwan/qfkdzukdhtplqipni1wk.mp4',
+  'Monday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354096/sample/ridwan/kdah8pasmfxxvezd1lwo.mp4',
+  'Tuesday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354111/sample/ridwan/djdpk5yjl8ngovtjlt0k.mp4',
+  'Wednesday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354114/sample/ridwan/pp99oyk2ddthu5ufscao.mp4',
+  'Thursday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354107/sample/ridwan/rsl2k38rnqgrvyanw59w.mp4',
+  'Friday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354093/sample/ridwan/o1p80895jrjfm3vhj1mb.mp4',
+  'Saturday': 'https://res.cloudinary.com/dho5purny/video/upload/v1754354099/sample/ridwan/cilxufz54neybplomrth.mp4'
+};
+
 // --- Main Automation Logic ---
 const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
@@ -55,8 +67,10 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     fs.mkdirSync(outputDir, { recursive: true });
 
     // --- Download Intro Video ---
-    console.log('Downloading intro video...');
-    const introVideoUrl = 'https://res.cloudinary.com/dho5purny/video/upload/v1754270004/0804_1_qmykh1.mp4';
+    const dayOfWeek = new Date().toLocaleString('en-us', { weekday: 'long' });
+    const introVideoUrl = introVideoUrls[dayOfWeek];
+    console.log(`Today is ${dayOfWeek}, downloading the corresponding intro video...`);
+
     const introVideoPath = path.join(outputDir, 'intro.mp4');
     await new Promise((resolve, reject) => {
         const file = fs.createWriteStream(introVideoPath);
