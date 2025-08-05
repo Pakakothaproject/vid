@@ -67,12 +67,13 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 
 const _performApiCall = async (text: string, apiKey: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey });
-    // Using a more explicit prompt to guide the TTS model, which can improve reliability.
-    const instructionalPrompt = `Please read the following Bengali text aloud in a clear and steady narrative voice: "${text}"`;
-
+    
+    // Per Gemini TTS documentation, passing the raw text directly is a valid method.
+    // This is more robust than wrapping it in an extra instructional prompt, which may
+    // have caused issues with the uniquely formatted Bengali text.
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: instructionalPrompt,
+        contents: text,
         config: {
             responseModalities: ["AUDIO"],
             speechConfig: {
