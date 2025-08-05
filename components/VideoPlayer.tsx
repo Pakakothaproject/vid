@@ -266,8 +266,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         // Fade out BGM over 1s
         bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.0);
       }
-      // Hold logo for 1s total, allowing BGM to fade.
-      await sleep(1000);
+      // Hold logo, allowing BGM to fade. Reduced to 0.5s as requested.
+      await sleep(500);
 
       // Export the final playback duration for the recording script to use.
       if (audioContextRef.current) {
