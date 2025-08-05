@@ -1,3 +1,4 @@
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -121,7 +122,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     await playButton.click();
     
     console.log('Playback in progress... waiting for the final logo trigger.');
-    await page.waitForFunction(() => (window as any).finalLogoAppeared === true, null, { timeout: 120000 });
+    await page.waitForFunction(() => window.finalLogoAppeared === true, null, { timeout: 120000 });
     console.log('Final logo trigger received. Waiting for animation to complete.');
 
     // The animation sequence in the app runs for 1 second after the trigger.
@@ -132,8 +133,8 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Retrieving recorded audio data from page...');
     const audioBase64 = await page.evaluate(async () => {
         for (let i = 0; i < 10; i++) { // Poll for 10 seconds
-            if ((window as any).recordedAudioBase64) {
-                return (window as any).recordedAudioBase64;
+            if (window.recordedAudioBase64) {
+                return window.recordedAudioBase64;
             }
             await new Promise(res => setTimeout(res, 1000));
         }
@@ -150,8 +151,8 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Retrieving precise playback duration from page...');
     const mainSegmentDuration = await page.evaluate(async () => {
         for (let i = 0; i < 10; i++) {
-             if ((window as any).playbackDuration) {
-                return (window as any).playbackDuration;
+             if (window.playbackDuration) {
+                return window.playbackDuration;
             }
             await new Promise(res => setTimeout(res, 500));
         }
@@ -168,7 +169,7 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log(`Saved screenshot: ${screenshotPath}`);
 
     console.log('Retrieving generated news data from page...');
-    const generatedVideoData = await page.evaluate(() => (window as any).generatedVideoData);
+    const generatedVideoData = await page.evaluate(() => window.generatedVideoData);
 
     // --- Assess Generated News Content ---
     if (!generatedVideoData || !generatedVideoData.news) {
