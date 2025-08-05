@@ -266,15 +266,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
         // Fade out BGM over 1s
         bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.0);
       }
-      // Hold logo, allowing BGM to fade. Reduced to 0.5s as requested.
-      await sleep(500);
+      // Hold logo on screen for 1 second. Increased by 0.5s as requested.
+      await sleep(1000);
 
       // Export the final playback duration for the recording script to use.
       if (audioContextRef.current) {
         (window as any).playbackDuration = audioContextRef.current.currentTime;
       }
       
-      setAnimationPhase('stopped');
+      // The logo remains on screen. The calling function will handle the UI transition.
       if(bgmRef.current) bgmRef.current.pause();
 
   }, []);
@@ -433,7 +433,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
     if (isRecordMode && mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
         mediaRecorderRef.current.stop();
     }
+    
+    // Wait a fraction of a second to ensure recording captures the final frame before the UI changes.
+    await new Promise(res => setTimeout(res, 250));
 
+    // Now transition the UI to the finished state.
+    setAnimationPhase('stopped');
     addLog("Playback finished.");
     setAppStatus('finished');
   };
