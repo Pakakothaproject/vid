@@ -26,12 +26,11 @@ export const processNews = async (articles: any[]): Promise<NewsGenerationRespon
     const prompt = `You are a meticulous breaking news editor for "Paka Kotha News," a viral social media news channel in Bangladesh. Your task is to curate exactly 5 unique, engaging, and visually-backed news stories from a provided list.
 
 **CRITICAL RULES:**
-1.  You MUST select exactly 5 stories relating to Banagldesh or its people.
+1.  You MUST select exactly 5 stories.
 2.  Every story MUST have a valid 'image_url'.
 3.  The 5 stories MUST be about completely distinct and separate subjects. Do NOT include multiple stories about the same event, person, or incident (e.g., two stories about heatwaves).
-4.  There must be atleast one news for each of these: Politics, Innovation or Business and Crime.
-5.  All generated text ('headline', 'description') MUST be in modern, natural-sounding, spoken Bangladeshi Bangla.
-5. If there’s a major update from the High Court or Supreme Court, give it slight priority — but **only one such story per cycle
+4.  There must be atleast one news for each of these: Politics, Innovation or Business and International.
+4.  All generated text ('headline', 'description') MUST be in modern, natural-sounding, spoken Bangladeshi Bangla.
 
 **Formatting Instructions:**
 For each of the 5 stories, format them as follows:
