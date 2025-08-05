@@ -3,7 +3,7 @@ name: Generate, Record, and Upload Video
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 9 * * *'  # Runs daily at 3 PM Bangladesh Time (UTC+6)
+    - cron: '0 12 * * *'  # Runs daily at 3 PM Bangladesh Time (UTC+6)
 
 jobs:
   generate-video:
