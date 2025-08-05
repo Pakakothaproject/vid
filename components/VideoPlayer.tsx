@@ -1,6 +1,6 @@
 
 
-import React, { useState, useEffect, useRef, useCallback } from 'react
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { NewsItem } from '../types';
 import NewsCard from './NewsCard';
 import NewsDetail from './NewsDetail';
