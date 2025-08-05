@@ -67,9 +67,12 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 
 const _performApiCall = async (text: string, apiKey: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey });
+    // Using a more explicit prompt to guide the TTS model, which can improve reliability.
+    const instructionalPrompt = `Please read the following Bengali text aloud in a clear and steady narrative voice: "${text}"`;
+
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: text,
+        contents: instructionalPrompt,
         config: {
             responseModalities: ["AUDIO"],
             speechConfig: {
@@ -141,36 +144,35 @@ const _attemptWithRetries = async (text: string, apiKey: string, keyName: string
 
 /**
  * Generates audio from text using the Google Gemini TTS API with a retry and fallback mechanism.
- * It first tries the primary API_KEY. If that fails, it falls back to API_KEY2.
+ * It attempts generation with a series of API keys in order (API_KEY, API_KEY2, API_KEY3, API_KEY4).
  * @param text The text to convert to speech.
  * @returns A promise that resolves to a local URL for the generated audio blob.
  */
 export const generateAudio = async (text: string): Promise<string> => {
-    const primaryApiKey = process.env.API_KEY;
-    const secondaryApiKey = process.env.API_KEY2;
+    const apiKeys = [
+        { name: 'API_KEY', value: process.env.API_KEY },
+        { name: 'API_KEY2', value: process.env.API_KEY2 },
+        { name: 'API_KEY3', value: process.env.API_KEY3 },
+        { name: 'API_KEY4', value: process.env.API_KEY4 },
+    ].filter(key => key.value && key.value.trim() !== '');
 
-    if (!primaryApiKey) {
-        throw new Error("Primary API key (API_KEY) is not configured.");
+    if (apiKeys.length === 0) {
+        throw new Error("No API keys are configured (API_KEY, API_KEY2, API_KEY3, API_KEY4).");
     }
 
-    try {
-        return await _attemptWithRetries(text, primaryApiKey, 'API_KEY');
-    } catch (primaryError) {
-        const errorMessage = primaryError instanceof Error ? primaryError.message : String(primaryError);
-        console.warn(`Primary API key failed. Reason: ${errorMessage}`);
+    // Ensure we don't retry with the same key if they are duplicated in env
+    const uniqueApiKeys = Array.from(new Map(apiKeys.map(key => [key.value, key])).values());
 
-        if (secondaryApiKey && secondaryApiKey.trim() !== '' && secondaryApiKey !== primaryApiKey) {
-            console.log("Attempting fallback to secondary API key (API_KEY2)...");
-            try {
-                return await _attemptWithRetries(text, secondaryApiKey, 'API_KEY2');
-            } catch (secondaryError) {
-                const secondaryErrorMessage = secondaryError instanceof Error ? secondaryError.message : String(secondaryError);
-                console.error(`Secondary API key (API_KEY2) also failed. Reason: ${secondaryErrorMessage}`);
-                throw new Error("Audio generation failed with both primary and secondary API keys.");
-            }
-        } else {
-            console.error("No valid fallback API key is available. Audio generation has failed.");
-            throw primaryError; // Re-throw the original error if no fallback is possible
+    for (const apiKey of uniqueApiKeys) {
+        try {
+            console.log(`Attempting audio generation with ${apiKey.name}...`);
+            return await _attemptWithRetries(text, apiKey.value!, apiKey.name);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.warn(`Audio generation with ${apiKey.name} failed. Reason: ${errorMessage}`);
         }
     }
+
+    console.error("Audio generation failed with all available API keys.");
+    throw new Error("Audio generation failed with all available API keys.");
 };
