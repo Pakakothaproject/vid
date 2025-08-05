@@ -13,13 +13,13 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ newsItem, isActive }) => {
   return (
     <div className="relative w-full h-full overflow-hidden">
       {/* Content Container */}
-      <div className="absolute inset-0 p-6 flex flex-col justify-end">
+      <div className="absolute inset-0 p-6 flex flex-col justify-center">
         <div 
           className={`w-full transition-all duration-700 ease-out ${isActive ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
           style={{ transitionDelay: isActive ? '300ms' : '0ms' }}
         >
           {/* Image Box */}
-          <div className="w-full h-48 mb-4 rounded-lg overflow-hidden border-2 border-white/40 shadow-xl mx-auto">
+          <div className="w-full h-52 mb-4 rounded-lg overflow-hidden border-2 border-white/40 shadow-xl mx-auto">
             <img 
               src={newsItem.image} 
               alt={newsItem.headline} 
@@ -29,14 +29,14 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ newsItem, isActive }) => {
 
           {/* Headline */}
           <div className="bg-yellow-400/10 border-l-4 border-yellow-400 p-3 mb-4 backdrop-blur-sm rounded-lg shadow-lg">
-            <h2 className="text-2xl font-bold text-white" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>
+            <h2 className="text-3xl font-bold text-white" style={{ textShadow: '1px 1px 3px rgba(0,0,0,0.5)' }}>
               {newsItem.headline}
             </h2>
           </div>
           
           {/* Description */}
           <div className="bg-black/50 p-4 rounded-lg backdrop-blur-sm min-h-[120px] shadow-lg">
-            <p className="text-white/90 text-lg font-normal leading-relaxed">
+            <p className="text-white/90 text-xl font-normal leading-loose">
               {typedDescription}
               {isActive && typedDescription.length < newsItem.description.length ? <span className="animate-pulse">|</span> : ''}
             </p>
@@ -44,7 +44,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ newsItem, isActive }) => {
         </div>
         
         {/* Spacer for bottom logo overlay */}
-        <div className="h-36 flex-shrink-0"></div>
+        <div className="h-32 flex-shrink-0"></div>
       </div>
     </div>
   );

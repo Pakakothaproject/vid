@@ -120,20 +120,20 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     console.log('Starting playback and recording...');
     await playButton.click();
     
-    // Wait for playback to finish by monitoring the button's state
-    const selector = '[data-testid="play-preview-button"]';
-    await page.waitForFunction(sel => document.querySelector(sel)?.disabled, selector, { timeout: 10000 });
-    console.log("Playback in progress...")
-    await page.waitForFunction(sel => !document.querySelector(sel), selector, { timeout: 120000 });
+    console.log('Playback in progress... waiting for the final logo trigger.');
+    await page.waitForFunction(() => (window as any).finalLogoAppeared === true, null, { timeout: 120000 });
+    console.log('Final logo trigger received. Waiting for animation to complete.');
+
+    // The animation sequence in the app runs for 1 second after the trigger.
+    // We wait for that to complete, plus a small safety buffer to ensure all window variables are set.
+    await page.waitForTimeout(1200);
     console.log('Playback finished.');
     
-    await page.waitForTimeout(3000); // Allow time for audio/duration processing to finalize.
-
     console.log('Retrieving recorded audio data from page...');
     const audioBase64 = await page.evaluate(async () => {
         for (let i = 0; i < 10; i++) { // Poll for 10 seconds
-            if (window.recordedAudioBase64) {
-                return window.recordedAudioBase64;
+            if ((window as any).recordedAudioBase64) {
+                return (window as any).recordedAudioBase64;
             }
             await new Promise(res => setTimeout(res, 1000));
         }
@@ -147,13 +147,28 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     fs.writeFileSync(audioPath, Buffer.from(audioBase64, 'base64'));
     console.log(`Saved audio: ${audioPath}`);
 
+    console.log('Retrieving precise playback duration from page...');
+    const mainSegmentDuration = await page.evaluate(async () => {
+        for (let i = 0; i < 10; i++) {
+             if ((window as any).playbackDuration) {
+                return (window as any).playbackDuration;
+            }
+            await new Promise(res => setTimeout(res, 500));
+        }
+        return null;
+    });
+
+    if (!mainSegmentDuration) {
+      throw new Error("Could not retrieve precise animation duration from the page. Final video may be cut short.");
+    }
+
     console.log('Capturing final screenshot...');
     const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
     console.log(`Saved screenshot: ${screenshotPath}`);
 
     console.log('Retrieving generated news data from page...');
-    const generatedVideoData = await page.evaluate(() => (window).generatedVideoData);
+    const generatedVideoData = await page.evaluate(() => (window as any).generatedVideoData);
 
     // --- Assess Generated News Content ---
     if (!generatedVideoData || !generatedVideoData.news) {
@@ -200,10 +215,25 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
     console.log('Combining intro, main video, and audio with ffmpeg...');
     try {
-        // This command concatenates the intro video (with its audio) and the main recorded segment (video + audio).
-        // The `-shortest` flag is critical: it ends the final video when the shortest input stream (the concatenated audio) ends.
-        // This ensures the video length is perfectly timed to the audio without manual duration calculations.
-        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -shortest "${finalVideoPath}"`;
+        const getDuration = (filePath) => {
+            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
+            return parseFloat(execSync(command).toString().trim());
+        };
+
+        const introDuration = getDuration(introVideoPath);
+        
+        // The final video's duration is the sum of the intro and the precise main segment
+        // duration retrieved from the browser's high-resolution audio context timer.
+        const finalVideoDuration = introDuration + mainSegmentDuration;
+
+        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Segment (from App)=${mainSegmentDuration.toFixed(2)}s`);
+        console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
+
+        if (finalVideoDuration <= 0) {
+            throw new Error("Calculated final duration is zero or negative. Cannot create video.");
+        }
+
+        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
 
         execSync(ffmpegCommand, { stdio: 'inherit' });
 

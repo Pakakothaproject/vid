@@ -260,21 +260,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
           await playAudioAndWait(audioRef.current!, newsItems[i].audioSrc, 7000);
       }
 
-      // Set the final logo phase. The moment this is set, the animation begins.
       setAnimationPhase('logo');
-      
-      // Record the precise time the logo animation starts and add 1 second for the hold.
-      // This becomes the exact duration for the main video segment.
-      if (audioContextRef.current) {
-        (window as any).playbackDuration = audioContextRef.current.currentTime + 1.0;
-      }
-
-      // For the live preview, fade out the BGM and wait for the animation to finish.
+      (window as any).finalLogoAppeared = true;
       if (bgmGainNodeRef.current && audioContextRef.current) {
-        bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.5);
+        // Fade out BGM over 1s
+        bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.0);
       }
-      await sleep(2000); // Allow preview to run a bit longer. Recording is controlled by playbackDuration.
+      // Hold logo for 1s total, allowing BGM to fade.
+      await sleep(1000);
 
+      // Export the final playback duration for the recording script to use.
+      if (audioContextRef.current) {
+        (window as any).playbackDuration = audioContextRef.current.currentTime;
+      }
+      
       setAnimationPhase('stopped');
       if(bgmRef.current) bgmRef.current.pause();
 
@@ -480,7 +479,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
             <h1 className="text-4xl font-bold" style={{textShadow: '2px 2px 4px rgba(0,0,0,0.5)'}}>আজকের প্রধান খবর:</h1>
             <p className="text-xl font-semibold opacity-80" style={{textShadow: '1px 1px 2px rgba(0,0,0,0.5)'}}>সংবাদ সারসংক্ষেপ</p>
           </div>
-          <div className="absolute top-36 left-0 right-0 px-4">
+          <div className="absolute top-28 left-0 right-0 px-4">
               {news.map((item, index) => <NewsCard key={item.id} newsItem={item} index={index} animate={animationPhase === 'overview'} />)}
           </div>
       </div>
@@ -501,7 +500,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
 
       <div className="absolute bottom-0 left-0 right-0 h-36 bg-cover bg-no-repeat bg-bottom z-10 pointer-events-none" style={{ backgroundImage: `url('${assetUrlsRef.current.overlay || 'https://res.cloudinary.com/dy80ftu9k/image/upload/v1753644798/Untitled-1_hxkjvt.png'}')` }}/>
       <div className={`absolute bottom-5 z-20 w-full flex justify-center pointer-events-none transition-opacity duration-300 ${animationPhase === 'logo' ? 'opacity-0' : 'opacity-100'}`}>
-          <img src={assetUrlsRef.current.logo || "https://res.cloudinary.com/dho5purny/image/upload/v1754000603/Logo_nevggd.png"} alt="Paka Kotha Logo" className="h-16" />
+          <img src={assetUrlsRef.current.logo || "https://res.cloudinary.com/dho5purny/image/upload/v1754000603/Logo_nevggd.png"} alt="Paka Kotha Logo" className="h-20" />
       </div>
     </div>
   );
