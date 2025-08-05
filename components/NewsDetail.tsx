@@ -44,7 +44,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ newsItem, isActive }) => {
         </div>
         
         {/* Spacer for bottom logo overlay */}
-        <div className="h-32 flex-shrink-0"></div>
+        <div className="h-36 flex-shrink-0"></div>
       </div>
     </div>
   );
