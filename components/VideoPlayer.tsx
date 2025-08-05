@@ -566,6 +566,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
       <LogBox logs={logs} />
     </div>
   );
-}
+};
 
 export default VideoPlayer;
