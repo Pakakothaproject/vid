@@ -2,6 +2,8 @@
 
 
 
+
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -212,12 +214,13 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
 
         const introDuration = getDuration(introVideoPath);
         const mainAudioDuration = getDuration(audioPath);
-        const logoDisplayDuration = 1; // Display logo for 1 second at the end.
 
-        const totalAudioDuration = introDuration + mainAudioDuration;
-        const finalVideoDuration = totalAudioDuration + logoDisplayDuration;
+        // The main audio track already contains the full narration and background music,
+        // including the fade-out over the logo at the end. The final video's duration
+        // should be the sum of the intro and this main audio track.
+        const finalVideoDuration = introDuration + mainAudioDuration;
 
-        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Audio=${mainAudioDuration.toFixed(2)}s, Logo=${logoDisplayDuration}s`);
+        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Segment (Audio/Video)=${mainAudioDuration.toFixed(2)}s`);
         console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
 
         if (finalVideoDuration <= 0) {
