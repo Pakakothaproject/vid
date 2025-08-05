@@ -260,19 +260,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({ isRecordMode = false }) => {
           await playAudioAndWait(audioRef.current!, newsItems[i].audioSrc, 7000);
       }
 
+      // Set the final logo phase. The moment this is set, the animation begins.
       setAnimationPhase('logo');
+      
+      // Record the precise time the logo animation starts and add 1 second for the hold.
+      // This becomes the exact duration for the main video segment.
+      if (audioContextRef.current) {
+        (window as any).playbackDuration = audioContextRef.current.currentTime + 1.0;
+      }
+
+      // For the live preview, fade out the BGM and wait for the animation to finish.
       if (bgmGainNodeRef.current && audioContextRef.current) {
-        // Fade out BGM over 1.5s
         bgmGainNodeRef.current.gain.linearRampToValueAtTime(0, audioContextRef.current.currentTime + 1.5);
       }
-      // Hold logo for 2s total, allowing BGM to fade.
-      await sleep(2000);
+      await sleep(2000); // Allow preview to run a bit longer. Recording is controlled by playbackDuration.
 
-      // Export the final playback duration for the recording script to use.
-      if (audioContextRef.current) {
-        (window as any).playbackDuration = audioContextRef.current.currentTime;
-      }
-      
       setAnimationPhase('stopped');
       if(bgmRef.current) bgmRef.current.pause();
 
