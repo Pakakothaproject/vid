@@ -1,4 +1,5 @@
 
+
 import { chromium } from 'playwright';
 import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
@@ -123,12 +124,23 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     
     console.log('Playback in progress... waiting for the final logo trigger.');
     await page.waitForFunction(() => window.finalLogoAppeared === true, null, { timeout: 120000 });
-    console.log('Final logo trigger received. Waiting for animation to complete.');
+    console.log('Final logo trigger received. Waiting for full playback to complete.');
+    
+    console.log('Polling for precise playback duration from page...');
+    const mainSegmentDuration = await page.evaluate(async () => {
+        for (let i = 0; i < 10; i++) { // Poll for up to 5 seconds
+             if (window.playbackDuration) {
+                return window.playbackDuration;
+            }
+            await new Promise(res => setTimeout(res, 500));
+        }
+        return null;
+    });
 
-    // The animation sequence in the app runs for 1 second after the trigger.
-    // We wait for that to complete, plus a small safety buffer to ensure all window variables are set.
-    await page.waitForTimeout(1200);
-    console.log('Playback finished.');
+    if (!mainSegmentDuration) {
+      throw new Error("Could not retrieve precise animation duration from the page. Final video may be cut short.");
+    }
+    console.log('App reports playback finished.');
     
     console.log('Retrieving recorded audio data from page...');
     const audioBase64 = await page.evaluate(async () => {
@@ -147,21 +159,6 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const audioPath = path.join(outputDir, 'audio.webm');
     fs.writeFileSync(audioPath, Buffer.from(audioBase64, 'base64'));
     console.log(`Saved audio: ${audioPath}`);
-
-    console.log('Retrieving precise playback duration from page...');
-    const mainSegmentDuration = await page.evaluate(async () => {
-        for (let i = 0; i < 10; i++) {
-             if (window.playbackDuration) {
-                return window.playbackDuration;
-            }
-            await new Promise(res => setTimeout(res, 500));
-        }
-        return null;
-    });
-
-    if (!mainSegmentDuration) {
-      throw new Error("Could not retrieve precise animation duration from the page. Final video may be cut short.");
-    }
 
     console.log('Capturing final screenshot...');
     const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
@@ -276,10 +273,10 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     if (finalVideoUrl && generatedVideoData) {
       const { news, hashtags_en, hashtags_bn } = generatedVideoData;
     
-      const englishHeadlines = news.map((item, index) => `${index + 1}. ${item.headline_en}`).join('\\n');
-      const banglaHeadlines = news.map((item, index) => `${index + 1}. ${item.headline}`).join('\\n');
+      const englishHeadlines = news.map((item, index) => `${index + 1}. ${item.headline_en}`).join('\n');
+      const banglaHeadlines = news.map((item, index) => `${index + 1}. ${item.headline}`).join('\n');
       
-      const videoDescription = `${englishHeadlines}\\n\\n🔹 Bangla Headlines\\n${banglaHeadlines}\\n\\n${hashtags_en}\\n${hashtags_bn}`;
+      const videoDescription = `${englishHeadlines}\n\n🔹 Bangla Headlines\n${banglaHeadlines}\n\n${hashtags_en}\n${hashtags_bn}`;
       
       const webhookUrl = 'https://hook.us2.make.com/urbj1s7e81g3g59di6uaadxy302882xp';
       const payload = {
