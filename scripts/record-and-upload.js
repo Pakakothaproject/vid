@@ -147,21 +147,6 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     fs.writeFileSync(audioPath, Buffer.from(audioBase64, 'base64'));
     console.log(`Saved audio: ${audioPath}`);
 
-    console.log('Retrieving precise playback duration from page...');
-    const mainSegmentDuration = await page.evaluate(async () => {
-        for (let i = 0; i < 10; i++) {
-             if (window.playbackDuration) {
-                return window.playbackDuration;
-            }
-            await new Promise(res => setTimeout(res, 500));
-        }
-        return null;
-    });
-
-    if (!mainSegmentDuration) {
-      throw new Error("Could not retrieve precise animation duration from the page. Final video may be cut short.");
-    }
-
     console.log('Capturing final screenshot...');
     const screenshotPath = path.join(outputDir, `final-view-${Date.now()}.png`);
     await page.screenshot({ path: screenshotPath, fullPage: true });
@@ -215,25 +200,10 @@ const SCRIPT_TIMEOUT = 10 * 60 * 1000; // 10 minutes
     const finalVideoPath = path.join(outputDir, 'final_video.mp4');
     console.log('Combining intro, main video, and audio with ffmpeg...');
     try {
-        const getDuration = (filePath) => {
-            const command = `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${filePath}"`;
-            return parseFloat(execSync(command).toString().trim());
-        };
-
-        const introDuration = getDuration(introVideoPath);
-        
-        // The final video's duration is the sum of the intro and the precise main segment
-        // duration retrieved from the browser's high-resolution audio context timer.
-        const finalVideoDuration = introDuration + mainSegmentDuration;
-
-        console.log(`Calculated durations: Intro=${introDuration.toFixed(2)}s, Main Segment (from App)=${mainSegmentDuration.toFixed(2)}s`);
-        console.log(`Total video duration will be: ${finalVideoDuration.toFixed(2)}s`);
-
-        if (finalVideoDuration <= 0) {
-            throw new Error("Calculated final duration is zero or negative. Cannot create video.");
-        }
-
-        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -t ${finalVideoDuration} "${finalVideoPath}"`;
+        // This command concatenates the intro video (with its audio) and the main recorded segment (video + audio).
+        // The `-shortest` flag is critical: it ends the final video when the shortest input stream (the concatenated audio) ends.
+        // This ensures the video length is perfectly timed to the audio without manual duration calculations.
+        const ffmpegCommand = `ffmpeg -i "${introVideoPath}" -i "${rawVideoPath}" -i "${audioPath}" -filter_complex "[1:v]trim=start=${trimDurationInSeconds},setpts=PTS-STARTPTS[v_trimmed]; [v_trimmed]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_main]; [0:v]scale=540:960:force_original_aspect_ratio=decrease,pad=540:960:(ow-iw)/2:(oh-ih)/2,setsar=1,format=yuv420p[v_intro]; [v_intro][0:a][v_main][2:a]concat=n=2:v=1:a=1[v_out][a_out]" -map "[v_out]" -map "[a_out]" -c:v libx264 -c:a aac -movflags +faststart -shortest "${finalVideoPath}"`;
 
         execSync(ffmpegCommand, { stdio: 'inherit' });
 
