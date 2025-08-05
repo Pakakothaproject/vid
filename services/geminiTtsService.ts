@@ -65,16 +65,13 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
     return bytes.buffer;
 };
 
-const _performApiCall = async (text: string, apiKey: string): Promise<string> => {
+const _performApiCall = async (text: string, apiKey: string, modelName: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey });
     
-    // An instructional prompt is more robust, especially for non-English languages.
-    // This makes the request less ambiguous for the TTS model.
-    const prompt = `TTS the following text: ${text}`;
-    
+    // Per documentation, send the raw text directly without instructional prefixes.
     const response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-preview-tts",
-        contents: prompt,
+        model: modelName,
+        contents: text,
         config: {
             responseModalities: ["AUDIO"],
             speechConfig: {
@@ -90,7 +87,7 @@ const _performApiCall = async (text: string, apiKey: string): Promise<string> =>
     const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
     if (audioData && audioData.trim().length > 0) {
-        console.log(`[TTS Service] Successfully received audio data from API for text: "${text.substring(0, 50)}..."`);
+        console.log(`[TTS Service | ${modelName}] Successfully received audio data from API for text: "${text.substring(0, 50)}..."`);
         const pcmData = base64ToArrayBuffer(audioData.trim());
         const wavData = encodeWAV(pcmData, 1, 24000, 2);
         const audioBlob = new Blob([wavData], { type: 'audio/wav' });
@@ -114,26 +111,26 @@ const _performApiCall = async (text: string, apiKey: string): Promise<string> =>
         throw new Error(`Gemini TTS returned a text response instead of audio: ${errorText}`);
     }
 
-    console.error("Gemini TTS Raw Response on failure:", JSON.stringify(response, null, 2));
-    throw new Error("Gemini TTS API did not return audio data or a clear error message.");
+    console.error(`[${modelName}] Gemini TTS Raw Response on failure:`, JSON.stringify(response, null, 2));
+    throw new Error(`[${modelName}] Gemini TTS API did not return audio data or a clear error message.`);
 };
 
-const _attemptWithRetries = async (text: string, apiKey: string, keyName: string): Promise<string> => {
+const _attemptWithRetries = async (text: string, apiKey: string, keyName: string, modelName: string): Promise<string> => {
     const MAX_RETRIES = 5;
     const INITIAL_BACKOFF_MS = 1000;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         try {
-            return await _performApiCall(text, apiKey);
+            return await _performApiCall(text, apiKey, modelName);
         } catch (error) {
-            console.error(`[${keyName}] Attempt ${attempt}/${MAX_RETRIES} for generateAudio failed. Text: "${text.substring(0,50)}..."`, error);
+            console.error(`[${keyName} | ${modelName}] Attempt ${attempt}/${MAX_RETRIES} for generateAudio failed. Text: "${text.substring(0,50)}..."`, error);
             
             if (error instanceof Error && error.message.includes('Audio generation blocked')) {
                 throw error; // Don't retry if it's a content blocking error
             }
 
             if (attempt === MAX_RETRIES) {
-                console.error(`[${keyName}] All retries failed.`);
+                console.error(`[${keyName} | ${modelName}] All retries failed.`);
                 throw error; // Re-throw the last error
             }
             
@@ -142,16 +139,21 @@ const _attemptWithRetries = async (text: string, apiKey: string, keyName: string
             await new Promise(res => setTimeout(res, delay));
         }
     }
-    throw new Error(`[${keyName}] Audio generation failed after all retries.`);
+    throw new Error(`[${keyName} | ${modelName}] Audio generation failed after all retries.`);
 };
 
 /**
  * Generates audio from text using the Google Gemini TTS API with a retry and fallback mechanism.
- * It attempts generation with a series of API keys in order (API_KEY, API_KEY2, API_KEY3, API_KEY4).
+ * It attempts generation with a series of API keys and models.
  * @param text The text to convert to speech.
  * @returns A promise that resolves to a local URL for the generated audio blob.
  */
 export const generateAudio = async (text: string): Promise<string> => {
+    const models = [
+        'gemini-2.5-flash-preview-tts',
+        'gemini-2.5-pro-preview-tts' // Fallback model
+    ];
+    
     const apiKeys = [
         { name: 'API_KEY', value: process.env.API_KEY },
         { name: 'API_KEY2', value: process.env.API_KEY2 },
@@ -166,16 +168,18 @@ export const generateAudio = async (text: string): Promise<string> => {
     // Ensure we don't retry with the same key if they are duplicated in env
     const uniqueApiKeys = Array.from(new Map(apiKeys.map(key => [key.value, key])).values());
 
-    for (const apiKey of uniqueApiKeys) {
-        try {
-            console.log(`Attempting audio generation with ${apiKey.name}...`);
-            return await _attemptWithRetries(text, apiKey.value!, apiKey.name);
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.warn(`Audio generation with ${apiKey.name} failed. Reason: ${errorMessage}`);
+    for (const modelName of models) {
+        for (const apiKey of uniqueApiKeys) {
+            try {
+                console.log(`Attempting audio generation with model: ${modelName} and key: ${apiKey.name}...`);
+                return await _attemptWithRetries(text, apiKey.value!, apiKey.name, modelName);
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                console.warn(`Audio generation with model: ${modelName} and key: ${apiKey.name} failed. Reason: ${errorMessage}`);
+            }
         }
     }
 
-    console.error("Audio generation failed with all available API keys.");
-    throw new Error("Audio generation failed with all available API keys.");
+    console.error("Audio generation failed with all available models and API keys.");
+    throw new Error("Audio generation failed with all available models and API keys.");
 };
