@@ -68,12 +68,13 @@ const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
 const _performApiCall = async (text: string, apiKey: string): Promise<string> => {
     const ai = new GoogleGenAI({ apiKey });
     
-    // Per Gemini TTS documentation, passing the raw text directly is a valid method.
-    // This is more robust than wrapping it in an extra instructional prompt, which may
-    // have caused issues with the uniquely formatted Bengali text.
+    // An instructional prompt is more robust, especially for non-English languages.
+    // This makes the request less ambiguous for the TTS model.
+    const prompt = `TTS the following text: ${text}`;
+    
     const response = await ai.models.generateContent({
         model: "gemini-2.5-flash-preview-tts",
-        contents: text,
+        contents: prompt,
         config: {
             responseModalities: ["AUDIO"],
             speechConfig: {
@@ -89,12 +90,13 @@ const _performApiCall = async (text: string, apiKey: string): Promise<string> =>
     const audioData = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
 
     if (audioData && audioData.trim().length > 0) {
+        console.log(`[TTS Service] Successfully received audio data from API for text: "${text.substring(0, 50)}..."`);
         const pcmData = base64ToArrayBuffer(audioData.trim());
         const wavData = encodeWAV(pcmData, 1, 24000, 2);
         const audioBlob = new Blob([wavData], { type: 'audio/wav' });
 
         if (audioBlob.size <= 44) { // 44 bytes is the size of the WAV header
-            throw new Error("Received empty audio data from API.");
+            throw new Error("Received empty audio data from API after processing.");
         }
         
         return URL.createObjectURL(audioBlob);
